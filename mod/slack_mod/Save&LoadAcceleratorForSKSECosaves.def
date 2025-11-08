@@ -1,0 +1,5 @@
+
+EXPORTS
+	Initialize=SaveLoadAcceleratorForSKSECosaves_InitialiseViaPreloader @1
+	SaveLoadAcceleratorForSKSECosaves_GetVersion @2
+
