@@ -1,0 +1,15 @@
+
+# Save & Load Accelerator for SKSE Cosaves: Changelog
+
+## Version 1.0.0 (2025-11-08)
+
+The first release of this plugin, the features provided are as follows:
+- Acceleration of SKSE cosave saving and loading.
+- Console logging of the time taken to save or load a SKSE cosave.
+- Experimental support for saving the data of multiple SKSE plugins to a SKSE cosave in parallel.
+- Support for the AE, SE, VR, and GOG versions of SKSE.
+
+---
+
+The song recommendation for this release is ["10周年目突入記念公演"大拍乱会"メドレー" by CHARAN-PO-RANTAN](https://www.youtube.com/watch?v=fuIDO1_3oSE).
+
