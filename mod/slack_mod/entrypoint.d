@@ -1,0 +1,122 @@
+
+/+ SPDX-LICENSE-IDENTIFIER: 0BSD +/
+
+module slack_mod.entrypoint;
+
+import slack_common.bindings;
+import slack_common.memory;
+import slack_common.text;
+import slack_common.user_interface;
+import slack_mod.global;
+import slack_mod.setup;
+
+
+/+ Will no one rid me of this turbulent runtime?! +/
+export __gshared extern(Windows) int _fltused;
+
+
+extern(Windows)
+BOOL dllEntrypoint (HINSTANCE hinstDLL, uint fdwReason, scope void* lpvReserved) @trusted nothrow @nogc
+{
+	switch (fdwReason)
+	{
+	case DLL_PROCESS_ATTACH:
+		DisableThreadLibraryCalls(hinstDLL);
+		global.dllModule = hinstDLL;
+		goto default;
+	default:
+		return true;
+	}
+}
+
+
+extern(Windows)
+void SaveLoadAcceleratorForSKSECosaves_InitialiseViaPreloader () nothrow @nogc
+{
+	wchar[MAX_PATH + 60] stringBuffer = void;
+	setUpEverything(stringBuffer);
+}
+
+
+extern(Windows)
+uint SaveLoadAcceleratorForSKSECosaves_GetVersion () @safe pure nothrow @nogc
+{
+	return 0;
+}
+
+
+debug
+{
+	extern(C)
+	void _assert (scope const(char)* message, scope const(char)* fileName, uint line) nothrow @nogc
+	{
+		wchar[1024] stringBuffer = void;
+		/+ Minus one to account for the null-terminator. +/
+		wchar* end = stringBuffer.ptr + stringBuffer.length - 1;
+		wchar* s = stringBuffer.ptr;
+
+		blit(s, "An assertion failed on line "w.ptr, 28); s += 28;
+
+		auto lineNumber = line.asDecimal!wchar;
+		const(wchar)[] lineNumberUnpadded = lineNumber.unpadded;
+		blit(s, lineNumberUnpadded.ptr, lineNumberUnpadded.length); s += lineNumberUnpadded.length;
+
+		blit(s, " of \""w.ptr, 5); s += 5;
+
+		if (fileName != null)
+		{
+			size_t fileNameLength = strlen(fileName);
+
+			/+ Right-justify the file-name if its excessively long. The leaf is more pertinent than the stem. +/
+			size_t fileNameOffset = fileNameLength <= MAX_PATH ? 0 : fileNameLength - MAX_PATH;
+			fileNameLength = fileNameLength - fileNameOffset;
+
+			const(char)* utf8 = fileName + fileNameOffset;
+			const(char)* utf8End = utf8 + fileNameLength;
+			dchar pendingCodePoint = cast(dchar) -1;
+			utf8ToUTF16(&utf8, utf8End, &s, end, &pendingCodePoint);
+		}
+		else
+		{
+			blit(s, "<null>"w.ptr, 6); s += 6;
+		}
+
+		if (message != null)
+		{
+			size_t messageLength = strlen(message);
+
+			if (messageLength == 5)
+			{
+				const(char)* m = message;
+
+				if ((m[0] == 'f') & (m[1] == 'a') & (m[2] == 'l') & (m[3] == 's') & (m[4] == 'e'))
+				{
+					/+ Seriously? "false"? That's the best they could come up with for a messageless assert? +/
+					goto noMessage;
+				}
+			}
+
+			blit(s, "\".\r\nThe associated message is: \""w.ptr, 32); s += 32;
+
+			const(char)* utf8 = message;
+			const(char)* utf8End = utf8 + messageLength;
+			dchar pendingCodePoint = cast(dchar) -1;
+			utf8ToUTF16(&utf8, utf8End, &s, end, &pendingCodePoint);
+
+			if (end - s >= 2)
+			{
+				blit(s, "\"."w.ptr, 2); s += 2;
+			}
+		}
+		else
+		{
+		noMessage:
+			blit(s, "\"."w.ptr, 2); s += 2;
+		}
+
+		*s = '\0';
+
+		reportErrorToUser(stringBuffer.ptr);
+	}
+}
+

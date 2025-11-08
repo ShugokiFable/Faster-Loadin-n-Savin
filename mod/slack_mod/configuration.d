@@ -1,0 +1,213 @@
+
+/+ SPDX-LICENSE-IDENTIFIER: 0BSD +/
+
+module slack_mod.configuration;
+
+import slack_common.algorithms;
+import slack_common.bindings;
+import slack_common.ini;
+import slack_common.integers;
+import slack_common.memory;
+import slack_common.text;
+import slack_common.tib_access;
+import slack_common.user_interface;
+import slack_mod.limits;
+
+
+struct ConfigurationLongLived
+{
+	Flags flags;
+	ubyte parallelSavingThreadCount;
+
+	enum Flags : uint
+	{
+		none = 0,
+		accelerateSaving = 1 << 0,
+		accelerateLoading = 1 << 1,
+		enableParallelSaving = 1 << 2,
+		logSaveTimingsToConsole = 1 << 4,
+		logLoadTimingsToConsole = 1 << 5,
+	}
+
+	void setToDefault () scope @safe pure nothrow @nogc
+	{
+		this.flags = (
+			  Flags.accelerateSaving
+			| Flags.accelerateLoading
+			| Flags.logSaveTimingsToConsole
+			| Flags.logLoadTimingsToConsole
+		);
+
+		this.parallelSavingThreadCount = 0;
+	}
+
+	pragma(inline, true)
+	Flags accelerationEnabled () const @property scope @safe pure nothrow @nogc
+	{
+		return this.flags & (Flags.accelerateSaving | Flags.accelerateLoading);
+	}
+
+	pragma(inline, true)
+	Flags parallelismEnabled () const @property scope @safe pure nothrow @nogc
+	{
+		return this.flags & Flags.enableParallelSaving;
+	}
+
+	pragma(inline, true)
+	Flags timingLoggingEnabled () const @property scope @safe pure nothrow @nogc
+	{
+		return this.flags & (Flags.logSaveTimingsToConsole | Flags.logLoadTimingsToConsole);
+	}
+
+	pragma(inline, true)
+	Flags skseHooksAreRequired () const @property scope @safe pure nothrow @nogc
+	{
+		return this.accelerationEnabled | this.timingLoggingEnabled;
+	}
+
+	ubyte adjustThreadCounts (ubyte defaultThreadCount) scope @trusted pure nothrow @nogc
+	{
+		this.parallelSavingThreadCount = this.parallelSavingThreadCount == 0 ? defaultThreadCount : this.parallelSavingThreadCount;
+
+		this.parallelSavingThreadCount = lesserOf(this.parallelSavingThreadCount, parallelSaveLoadThreadCountLimit);
+
+		return this.parallelSavingThreadCount;
+	}
+
+	ubyte adjustThreadCounts () scope @trusted nothrow @nogc
+	{
+		static assert(parallelSaveLoadThreadCountLimit >= 16);
+
+		return this.adjustThreadCounts(
+			cast(ubyte) lesserOf(GetActiveProcessorCount(ALL_PROCESSOR_GROUPS), 16)
+		);
+	}
+}
+
+
+struct ConfigurationTransient
+{
+	const(char)[] skseDLLName;
+
+	void setToDefault () scope @safe pure nothrow @nogc
+	{
+		this.skseDLLName = null;
+	}
+}
+
+
+wchar* findConfigurationFilePath (return scope ref wchar[MAX_PATH + 60] stringBuffer, HMODULE dll) nothrow @nogc
+{
+	uint error = void;
+
+	uint dllPathLength = GetModuleFileNameW(dll, stringBuffer.ptr, MAX_PATH);
+
+	if (dllPathLength == 0)
+	{
+		reportErrorToUser(
+			stringBuffer,
+			"The path of the \"Save&LoadAcceleratorForSKSECosaves.dll\" file could not be found.",
+			hresultFromLastError(getLastError)
+		);
+		return null;
+	}
+
+	wchar* end = stringBuffer.ptr + dllPathLength;
+
+	for (; end > stringBuffer.ptr;)
+	{
+		--end;
+		if (*end == '.') goto iniPathFromDot;
+		if (*end == '\\') goto initPathFromSlash;
+	}
+initPathFromSlash:
+	blit(++end, "Save&LoadAcceleratorForSKSECosaves.ini"w.ptr, 39);
+	end += 38;
+	return end;
+iniPathFromDot:
+	*++end = 'i';
+	*++end = 'n';
+	*++end = 'i';
+	*++end = '\0';
+	return end;
+}
+
+
+void parseINIConfiguration (
+	scope const(char)[] ini,
+	scope ConfigurationLongLived* configuration,
+	scope ConfigurationTransient* transient
+) @trusted pure nothrow @nogc
+{
+	enum string iniSection (string name, string handler) =
+	`{
+		enum string name = "` ~ name ~ `";
+
+		if (s.name.length == name.length)
+		{
+			if (caseInsensitiveASCIIEquality!true(s.name.ptr, name.ptr, name.length))
+			{
+				sectionHandler = ` ~ handler ~ `;
+				return 0;
+			}
+		}
+	}`;
+
+	enum string iniKey (string key, string handle) =
+	`{
+		enum string key = "` ~ key ~ `";
+
+		if (a.key.length == key.length)
+		{
+			if (caseInsensitiveASCIIEquality!true(a.key.ptr, key.ptr, key.length))
+			{
+				` ~ handle ~ `
+				return;
+			}
+		}
+	}`;
+
+	alias F = ConfigurationLongLived.Flags;
+
+	/+ [Settings] +/
+	scope settingsSectionHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
+	{
+		mixin(iniKey!("acceleratesaving", q{conditionallyMutateMask(configuration.flags, F.accelerateSaving, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("accelerateloading", q{conditionallyMutateMask(configuration.flags, F.accelerateLoading, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("logsavetimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logSaveTimingsToConsole, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("logloadtimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logLoadTimingsToConsole, iniValueAsBoolean(a.value));}));
+	};
+
+	/+ [ParallelSaving] +/
+	scope parallelSavingHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
+	{
+		mixin(iniKey!("enabled", q{conditionallyMutateMask(configuration.flags, F.enableParallelSaving, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("threadcount", q{iniValueAsNonNegativeInteger(a.value, &configuration.parallelSavingThreadCount);}));
+	};
+
+	/+ [SKSE] +/
+	scope skseSectionHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
+	{
+		mixin(iniKey!("sksedllname", q{transient.skseDLLName = a.value;}));
+	};
+
+	scope void delegate (scope const(INIAssignment!(const(char)))* assignment) pure nothrow @nogc @trusted sectionHandler = void;
+
+	parseSimpleINI(
+		ini,
+		(scope const(INISection!(const(char)))* s)
+		{
+			mixin(iniSection!("skse", q{skseSectionHandler}));
+			mixin(iniSection!("settings", q{settingsSectionHandler}));
+			mixin(iniSection!("parallelsaving", q{parallelSavingHandler}));
+
+			return skipINISection;
+		},
+		(scope const(INIAssignment!(const(char)))* a)
+		{
+			sectionHandler(a);
+		},
+		true
+	);
+}
+
