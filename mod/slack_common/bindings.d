@@ -85,6 +85,7 @@ version (Windows)
 	extern(Windows) NTSTATUS NtClose (scope HANDLE Handle) @safe nothrow @nogc;
 
 
+	extern(Windows) HANDLE CreateFileA (scope const(char)* lpFileName, uint dwDesiredAccess, uint dwShareMode, scope void* lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, HANDLE hTemplateFile) nothrow @nogc;
 	extern(Windows) HANDLE CreateFileW (scope const(wchar)* lpFileName, uint dwDesiredAccess, uint dwShareMode, scope void* lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, HANDLE hTemplateFile) nothrow @nogc;
 	extern(Windows) NTSTATUS NtOpenFile (scope HANDLE* FileHandle, ACCESS_MASK DesiredAccess, scope OBJECT_ATTRIBUTES* ObjectAttributes, IO_STATUS_BLOCK* IoStatusBlock, uint ShareAccess, uint OpenOptions) nothrow @nogc;
 
