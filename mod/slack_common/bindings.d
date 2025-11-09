@@ -133,6 +133,9 @@ version (Windows)
 	{
 		alias PUSER_THREAD_START_ROUTINE = NTSTATUS function (scope void* ThreadParameter) nothrow @nogc;
 		alias PVECTORED_EXCEPTION_HANDLER = int function (scope EXCEPTION_POINTERS* exceptionInfo) nothrow @nogc;
+		alias PLDR_DLL_NOTIFICATION_FUNCTION = void function (uint NotificationReason, scope const(LDR_DLL_NOTIFICATION_DATA)* NotificationData, void* context) nothrow @nogc;
+		alias LdrRegisterDllNotification = NTSTATUS function (uint Flags, PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction, void* Context, scope void** Cookie) nothrow @nogc;
+		alias LdrUnregisterDllNotification = NTSTATUS function (scope void* Cookie) nothrow @nogc;
 	}
 
 
@@ -324,6 +327,37 @@ version (Windows)
 	struct THREAD_NAME_INFORMATION
 	{
 		UNICODE_STRING ThreadName;
+	}
+
+
+	enum uint LDR_DLL_NOTIFICATION_REASON_LOADED = 1;
+	enum uint LDR_DLL_NOTIFICATION_REASON_UNLOADED = 2;
+
+
+	union LDR_DLL_NOTIFICATION_DATA
+	{
+		LDR_DLL_LOADED_NOTIFICATION_DATA Loaded;
+		LDR_DLL_UNLOADED_NOTIFICATION_DATA Unloaded;
+	}
+
+
+	struct LDR_DLL_LOADED_NOTIFICATION_DATA
+	{
+		uint Flags;
+		const(UNICODE_STRING)* FullDllName;
+		const(UNICODE_STRING)* BaseDllName;
+		void* DllBase;
+		uint SizeOfImage;
+	}
+
+
+	struct LDR_DLL_UNLOADED_NOTIFICATION_DATA
+	{
+		uint Flags;
+		const(UNICODE_STRING)* FullDllName;
+		const(UNICODE_STRING)* BaseDllName;
+		void* DllBase;
+		uint SizeOfImage;
 	}
 
 
