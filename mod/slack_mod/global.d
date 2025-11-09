@@ -30,11 +30,15 @@ struct GlobalState
 	ulong performanceFrequency;
 	double performanceFrequencyMillisecondMultiplier = 0;
 	bool haveWarnedUserAboutNearlyReachingSaveFileSizeLimit;
+	bool haveSetUpSpecialSKSE64Providers;
 
 	static if (shouldUseDLLNotifications)
 	{
 		void* dllRegistrationNotificationCookie;
 	}
+
+	SKSE64Provider specialSKSE64Provider;
+	SerialisationProvider specialSerialisationProvider;
 
 	ResolvedAddresses addressOf;
 	ConfigurationLongLived configuration;
@@ -58,6 +62,7 @@ struct ResolvedAddresses
 		ubyte* skseInitialiseTailReturn;
 	}
 
+	ubyte* supplySKSEProviderLEA;
 	ubyte* createSKSECosave;
 	ubyte* restoreSKSECosave;
 	ubyte* createSKSECosaveCall;

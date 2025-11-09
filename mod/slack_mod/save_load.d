@@ -40,6 +40,9 @@ import skse64.hacks.offsets;
    Prepare yourself for a morass of state, states, plugins, and plugin state. +/
 
 
+enum ulong specialStateSaverTag = ulong(1) << 62;
+
+
 struct SaveLoadState
 {
 	Cosave.RecordHeader nullCosaveRecordHeader;
@@ -354,6 +357,73 @@ struct SerialLoading
 }
 
 
+struct SpecialSaving
+{
+	static ubyte writeRecordData (scope const(void)* data, uint size) @system nothrow @nogc
+	{
+		size_t a = cast(size_t) data;
+		bool isImpossibleAddress = (a < 64.KB) | (a >= size_t.max - 64.KB);
+
+		if (isImpossibleAddress)
+		{
+			global.addressOf.skseConsolePrint(
+				"S.L.A.C.K. | A SKSE plugin has called `WriteRecordData` with an invalid memory address. | data: %016X | size: %u",
+				data,
+				size
+			);
+			return handleInvalidCall(data, size);
+		}
+
+		return global.addressOf.globalSerialisationProvider.writeRecordData(data, size);
+	}
+
+	static ubyte writeRecord (uint signature, uint schemaVersion, scope const(void)* data, uint size) @system nothrow @nogc
+	{
+		global.addressOf.globalSerialisationProvider.beginRecord(signature, schemaVersion);
+
+		size_t a = cast(size_t) data;
+		bool isImpossibleAddress = (a < 64.KB) | (a >= size_t.max - 64.KB);
+
+		if (isImpossibleAddress)
+		{
+			global.addressOf.skseConsolePrint(
+				"S.L.A.C.K. | A SKSE plugin has called `WriteRecord` with an invalid memory address. | signature: %08X | schemaVersion: %08X | data: %016X | size: %u",
+				signature,
+				schemaVersion,
+				data,
+				size
+			);
+			return handleInvalidCall(data, size);
+		}
+
+		return global.addressOf.globalSerialisationProvider.writeRecordData(data, size);
+	}
+
+	pragma(inline, false)
+	static ubyte handleInvalidCall (scope const(void)* data, uint size) @trusted nothrow @nogc
+	{
+	align(16)
+		ubyte[16] bunchaZeroes = 0;
+		uint remaining = size;
+
+		auto writeData = global.addressOf.globalSerialisationProvider.writeRecordData;
+
+		while (remaining >= 16)
+		{
+			remaining -= 16;
+			writeData(bunchaZeroes.ptr, 16);
+		}
+
+		if (remaining != 0)
+		{
+			writeData(bunchaZeroes.ptr, remaining);
+		}
+
+		return true;
+	}
+}
+
+
 version (SLACKVerificationMode)
 {
 	struct VerifiedLoading
@@ -489,10 +559,20 @@ bool savePluginData (
 	pluginState.currentRecordHeader = unaligned(cast(Cosave.RecordHeader*) &currentPluginHeader[1]);
 	pluginState.recordCount = 0;
 
+	SerialisationProvider.ProviderReceiver detaggedStateSaver = cast(SerialisationProvider.ProviderReceiver) (
+		cast(size_t) pluginStateSaver & ~specialStateSaverTag
+	);
+
+	SerialisationProvider* serialisationProvider = (
+		  cast(size_t) pluginStateSaver == cast(size_t) detaggedStateSaver
+		? global.addressOf.globalSerialisationProvider
+		: &global.specialSerialisationProvider
+	);
+
 	/+ Might as well write it now whilst it's hot in the cache. +/
 	currentPluginHeader.signature = pluginUniqueID;
 
-	pluginStateSaver(global.addressOf.globalSerialisationProvider);
+	detaggedStateSaver(serialisationProvider);
 
 	*endOfData = pluginState.head;
 

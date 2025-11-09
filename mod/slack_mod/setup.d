@@ -3,6 +3,8 @@
 
 module slack_mod.setup;
 
+import ldc.llvmasm : __ir_pure;
+
 import game;
 
 import slack_common.algorithms;
@@ -376,6 +378,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 	global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
 	global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
+	global.addressOf.supplySKSEProviderLEA = sections.text.ptr + skse64Offsets.supplyProviderLEA;
 	global.addressOf.createSKSECosave = sections.text.ptr + skse64Offsets.createCosave;
 	global.addressOf.restoreSKSECosave = sections.text.ptr + skse64Offsets.restoreCosave;
 	global.addressOf.createSKSECosaveCall = sections.text.ptr + skse64Offsets.createCosaveCall;
@@ -546,6 +549,45 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 		FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosaveCall, 5);
 	}
 
+	if (
+		  ((global.configuration.flags & Config.accelerateSaving) != 0)
+		& ((global.configuration.flags & Config.workAroundThirdPartyBugs) != 0)
+	)
+	{
+		c = c.alignUpTo(16);
+		ubyte* skse64ProvisionHijack = c;
+
+		static if (targetedGameVersion >= 0x01_06_000_0)
+		{
+			enum ubyte shadowSpace = 40;
+		}
+		else
+		{
+			/+ It took me an hour to figure out that this was why
+			   `hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin` was failing on v1.5.97.
+			   I hate computers. +/
+			enum ubyte shadowSpace = 32;
+		}
+
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = shadowSpace;                          /+ sub rsp, shadowSpace +/
+		c += c.writeCallOf(cast(const(ubyte)*) &hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin); /+ call hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin +/
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = shadowSpace;                          /+ add rsp, shadowSpace +/
+		c.writeNearJumpTo(global.addressOf.supplySKSEProviderLEA + 7); c += 5;                         /+ jmp supplySKSEProviderLEA + 7  +/
+
+		withCodeRegionMadeWritable(
+			global.addressOf.supplySKSEProviderLEA,
+			7,
+			(scope ubyte* a, size_t s)
+			{
+				a.writeNearJumpTo(skse64ProvisionHijack);
+				a += 5;
+				a.nopOut!2;
+			}
+		);
+
+		FlushInstructionCache(thisProcess, global.addressOf.supplySKSEProviderLEA, 7);
+	}
+
 	makeMemoryRegionExecutable(code, 4.KB);
 
 	FlushInstructionCache(thisProcess, code, 4.KB);
@@ -623,5 +665,109 @@ void setUpAfterInitialisationOfSKSE () nothrow @nogc
 			}
 		);
 	}
+}
+
+
+pragma(inline, false)
+void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulong rdx) nothrow @nogc
+{
+	static if (targetedGameVersion >= 0x01_06_000_0)
+	{
+		HMODULE dll = *cast(HMODULE*) (rdx + 0x20);
+	}
+	else
+	{
+		HMODULE dll = *cast(HMODULE*) rdx;
+	}
+
+	wchar[MAX_PATH] path = void;
+	uint pathLength = GetModuleFileNameW(dll, path.ptr, path.length);
+
+	SKSE64Provider* provider = global.addressOf.globalSKSE64Provider;
+
+	if (pathLength != 0)
+	{
+		wchar* end = path.ptr + pathLength;
+
+		for (; end > path.ptr;)
+		{
+			--end;
+			if (*end == '.') goto dllNameFromDot;
+		}
+
+		goto useProvider;
+	dllNameFromDot:
+		wchar* baseName = end;
+
+		for (; baseName > path.ptr;)
+		{
+			--baseName;
+			if (*baseName == '\\') goto dllNameFromSlash;
+		}
+
+		goto useProvider;
+	dllNameFromSlash:
+		++baseName;
+		uint baseNameLength = cast(uint) (end - baseName);
+	}
+useProvider:
+	__ir_pure!(`call void asm sideeffect inteldialect "", "{rcx},{rdx}" (ptr %0, i64 %1)`, void)(
+		provider,
+		rdx
+	);
+}
+
+
+SKSE64Provider* setUpSpecialSKSE64Providers () nothrow @nogc
+{
+	if (global.haveSetUpSpecialSKSE64Providers)
+	{
+		return &global.specialSKSE64Provider;
+	}
+
+	SerialisationProvider* serialisationProvider = cast(SerialisationProvider*) (
+		global.addressOf.globalSKSE64Provider.requestProvider(SKSE64Provider.ProviderID.serialisation)
+	);
+
+	global.specialSerialisationProvider = *serialisationProvider;
+	global.specialSerialisationProvider.writeRecord = &SpecialSaving.writeRecord;
+	global.specialSerialisationProvider.writeRecordData = &SpecialSaving.writeRecordData;
+	global.specialSerialisationProvider.assignStateSaver = &specialSKSE64AssignStateSaver;
+
+	global.specialSKSE64Provider = *global.addressOf.globalSKSE64Provider;
+	global.specialSKSE64Provider.requestProvider = &specialSKSE64RequestProvider;
+
+	global.haveSetUpSpecialSKSE64Providers = true;
+
+	return &global.specialSKSE64Provider;
+}
+
+
+void* specialSKSE64RequestProvider (uint providerID) nothrow @nogc
+{
+	switch (providerID)
+	{
+	case SKSE64Provider.ProviderID.serialisation:
+		return &global.specialSerialisationProvider;
+	default:
+		return global.addressOf.globalSKSE64Provider.requestProvider(providerID);
+	}
+}
+
+
+void specialSKSE64AssignStateSaver (
+	DLLPluginIndex dllPluginIndex,
+	SerialisationProvider.ProviderReceiver providerReceiver
+) nothrow @nogc
+{
+	SerialisationProvider* serialisationProvider = cast(SerialisationProvider*) (
+		global.addressOf.globalSKSE64Provider.requestProvider(SKSE64Provider.ProviderID.serialisation)
+	);
+
+	/+ We tag the function-pointer to denote it as special. +/
+
+	auto pointer = cast(size_t) providerReceiver | specialStateSaverTag;
+
+	serialisationProvider.assignStateSaver(dllPluginIndex, cast(SerialisationProvider.ProviderReceiver) pointer);
 }
 
