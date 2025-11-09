@@ -55,7 +55,10 @@ struct SKSE64Offsets
 {
 	static foreach (member; __traits(allMembers, VersionedOffsets))
 	{
-		mixin("uint ", member, ";");
+		static if (__traits(getMember, __traits(getMember, versionedOffsets, member), targetedGameTag) != 0)
+		{
+			mixin("uint ", member, ";");
+		}
 	}
 }
 
@@ -64,11 +67,9 @@ enum SKSE64Offsets skse64Offsets = ()
 {
 	SKSE64Offsets offsets;
 
-	enum size_t count = versionedOffsets.tupleof.length;
-
-	static foreach (index; 0 .. count)
+	static foreach (member; __traits(allMembers, SKSE64Offsets))
 	{
-		offsets.tupleof[index] = __traits(getMember, versionedOffsets.tupleof[index], targetedGameTag);
+		__traits(getMember, offsets, member) = __traits(getMember, __traits(getMember, versionedOffsets, member), targetedGameTag);
 	}
 
 	return offsets;
