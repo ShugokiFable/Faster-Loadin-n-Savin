@@ -455,31 +455,28 @@ handleNonASCIIScalarLead:
 	{
 		assert(codeUnitCount == 2 || codeUnitCount == 3);
 
-		uint leadBits = 7 - codeUnitCount;
+		uint leadBits = codeUnitCount == 3 ? 12 : 6;
 
 		uint codePoint = *c++ & ((1 << (7 - codeUnitCount)) - 1);
-		//uint codePoint = *c & ((cast(ubyte) -1) >> (codeUnitCount + 1));
+		codePoint <<= leadBits;
+
+		leadBits -= 6;
 		codePoint |= uint(*c & 0b00111111) << leadBits;
 
-		if ((*c & 0b10000000) != 0b10)
+		if ((*c >>> 6) != 0b10)
 		{
+			++c;
 			goto replacementCharacter;
 		}
 
 		/+ If we have 3 code-units we'll eat the third code-unit here,
 		   otherwise if we have 2, we'll eat the second code-unit again. +/
 		c += codeUnitCount == 3;
-		uint lastBits = leadBits + (codeUnitCount == 3 ? 6 : 0);
 		uint overlongThreshold = codeUnitCount == 3 ? 0x0800 : 0x0080;
 
-		codePoint |= uint(*c++ & 0b00111111) << lastBits;
+		codePoint |= uint(*c & 0b00111111);
 
-		if ((*c & 0b10000000) != 0b10)
-		{
-			goto replacementCharacter;
-		}
-
-		if (codePoint < overlongThreshold)
+		if (((*c++ >>> 6) != 0b10) | (codePoint < overlongThreshold))
 		{
 			goto replacementCharacter;
 		}
@@ -490,15 +487,20 @@ handleNonASCIIScalarLead:
 	}
 	else if (codeUnitCount == 4)
 	{
-		uint codePoint = *c++ & 0b00000111;
+		uint codePoint = (*c++ & 0b00000111) << 18;
 
-		for (uint bits = 3; bits < 21; bits += 6)
+		for (uint bits = 12;; bits -= 6)
 		{
 			codePoint |= uint(*c & 0b00111111) << bits;
 
-			if ((*c & 0b10000000) != 0b10)
+			if ((*c++ >>> 6) != 0b10)
 			{
 				goto replacementCharacter;
+			}
+
+			if (bits == 0)
+			{
+				break;
 			}
 		}
 
@@ -531,7 +533,7 @@ handleNonASCIIScalarLead:
 	windThroughOverlong:
 		++c;
 
-		assert (++c < endOfUTF8);
+		assert(c < endOfUTF8);
 
 		if ((*c >> 6) == 0b10)
 		{
