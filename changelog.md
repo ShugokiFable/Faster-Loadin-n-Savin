@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.6 (2025-11-09)
+
+The seventh release of this plugin, the changes are as follows:
+- An issue which could cause save files to fail to open may have been fixed.
+---
+
+The song recommendation for this release is ["Rocking Son Of Dschinghis Khan" by, uhh, Dschinghis Khan](https://www.youtube.com/watch?v=pqWc5FABmDY). \
+I'm slightly ashamed to admit that this song is in my personal top-ten going by listen-count.
+
 ## Version 1.0.5 (2025-11-09)
 
 The sixth release of this plugin, the changes are as follows:
