@@ -11,7 +11,7 @@ The Script Extenders' saving system is an exception to this praise: it frankly i
 It can require dozens of seconds to save a single-digit-number of megabytes on veritable supercomputers.
 This is because it effectively hasn't changed at all† since the days of the Oblivion Script Extender; designed in the time of 5,400 RPM hard-drives, cheap(ish) syscalls, and if I may be so bold: perhaps more naïve programmers ;).
 
-† I'm not exaggerating here, most of the core code is identical to what it was in 2008.
+† I'm not exaggerating here, most of the core code of the saving system specifically is identical to what it was in 2008.
 
 Before I continue, I'd like to emphasise that I hold nothing but respect for the developers of the Script Extender series.
 The existence of this plugin, and the words I write, are not intended as an attack or a derisory action onto them.
@@ -32,7 +32,6 @@ Saves made with this plugin installed can be loaded without this plugin installe
 [*] A DLL preloader: either the [url=https://www.nexusmods.com/skyrimspecialedition/mods/17230]"SSE Engine Fixes - SKSE64 Preloader"[/url], or the [url=https://www.nexusmods.com/skyrimspecialedition/mods/10546]"DLL Plugin Loader"[/url] will do.
 [*] [url=https://skse.silverlock.org/]SKSE[/url] (duh).
 [/list]
-
 [size=4][b][u]Installation[/u][/b][/size]
 After ensuring that a DLL preloader is installed, this plugin can be installed like any other via your mod-manager of choice.
 
@@ -45,11 +44,13 @@ This plugin is active by default when it is installed.
 
 The "Save&LoadAcceleratorForSKSECosaves.ini" file next to the "Save&LoadAcceleratorForSKSECosaves.dll" file can be edited to configure this plugin.
 
+If you would like to eke out even more speed for saving the game, the experimental parallel-saving feature can be enabled via the "Save&LoadAcceleratorForSKSECosaves.ini" file.
+
 [size=4][b][u]What this plugin does[/u][/b][/size]
 This plugin makes heavily-modded games save and load more quickly.
 It does so by hooking and patching the SKSE DLL, at runtime, with highly-optimised reimplementations of SKSE's cosave saving/loading API's functions.
 
-This is particularly effective for save games wherein heavy usage of RaceMenu has been made, such as through using the likes of OBody or XP32 Maximum Skeleton's weapon styles for NPCs.
+This is particularly effective for save games wherein heavy usage of RaceMenu has been made, such as through using the likes of OBody, Mu Skeleton Editor, or XP32 Maximum Skeleton's weapon styles for NPCs.
 
 On my machine†, my SKSE cosave, standing at 4.25 MB in size (at the time of writing), takes [b]8.7 seconds[/b] to save. [b]8.7 seconds[/b] for 4.25 MB. That's 0.49 megabytes a second.
 
@@ -101,11 +102,12 @@ The optimisation this plugin makes is similarly obvious: the file is read into m
 [/spoiler]
 
 [size=4][b][u]Honourable Mentions[/u][/b][/size]
-On 2024-10-04 (over a year ago), GitHub user "intorr" submitted a [url=https://github.com/ianpatt/common/pull/6/files]pull-request to the SKSE project[/url] which speeds up the saving and loading of SKSE cosaves, via a delightfully simple implementation of a buffered file-stream.
+On 2024-10-04 (over a year ago), GitHub user "intorr" submitted a [url=https://github.com/ianpatt/skse64/pull/44]pull-request to the SKSE project[/url] which speeds up the saving and loading of SKSE cosaves, via a delightfully simple implementation of a buffered file-stream.
 In intorr's testing, it reduced the cosave-saving time from 2 seconds to 0.05 seconds.
 
 The pull-request remains unmerged.
 Hence the existence of this plugin.
+(To clarify, my plugin is not based on intorr's PR in any way.)
 
 [size=4][b][u]Preemptively Answered Questions (PAQ)[/u][/b][/size]
 Q: Why isn't the letter S in the plugin's acronym? Where the did the K come from?
