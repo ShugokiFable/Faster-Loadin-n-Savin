@@ -21,7 +21,7 @@ import skse64.serialisation;
 __gshared GlobalState global;
 
 
-enum bool shouldUseDLLNotifications = targetedGameVersion < 0x01_06_000_0;
+enum bool shouldUseDLLNotifications = targetedGameVersion <= 0x01_06_161_0;
 enum bool hookingSKSEInitialiseViaCall = targetedGameArchetype != GameArchetype.se && targetedGameArchetype != GameArchetype.ae353;
 
 
