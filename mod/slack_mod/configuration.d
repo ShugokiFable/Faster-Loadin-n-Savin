@@ -174,10 +174,10 @@ void parseINIConfiguration (
 	/+ [Settings] +/
 	scope settingsSectionHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
 	{
-		mixin(iniKey!("acceleratesaving", q{conditionallyMutateMask(configuration.flags, F.accelerateSaving, iniValueAsBoolean(a.value));}));
-		mixin(iniKey!("accelerateloading", q{conditionallyMutateMask(configuration.flags, F.accelerateLoading, iniValueAsBoolean(a.value));}));
-		mixin(iniKey!("logsavetimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logSaveTimingsToConsole, iniValueAsBoolean(a.value));}));
-		mixin(iniKey!("logloadtimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logLoadTimingsToConsole, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("acceleratesaving", q{conditionallyMutateMask(configuration.flags, F.accelerateSaving, iniValueAsBoolean(a.value, true));}));
+		mixin(iniKey!("accelerateloading", q{conditionallyMutateMask(configuration.flags, F.accelerateLoading, iniValueAsBoolean(a.value, true));}));
+		mixin(iniKey!("logsavetimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logSaveTimingsToConsole, iniValueAsBoolean(a.value, true));}));
+		mixin(iniKey!("logloadtimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logLoadTimingsToConsole, iniValueAsBoolean(a.value, true));}));
 	};
 
 	/+ [ParallelSaving] +/
