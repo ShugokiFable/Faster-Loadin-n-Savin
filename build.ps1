@@ -122,6 +122,10 @@ try
 					Files = "$SourceBase/game/target_ae640.d"
 				}
 				[PSCustomObject] @{
+					Name = 'ae353'
+					Files = "$SourceBase/game/target_ae353.d"
+				}
+				[PSCustomObject] @{
 					Name = 'se'
 					Files = "$SourceBase/game/target_se.d"
 				}
