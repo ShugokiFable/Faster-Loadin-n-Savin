@@ -1,6 +1,16 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.3 (2025-11-09)
+
+The fourth release of this plugin, the changes are as follows:
+- Version 2.1.5 of SKSE is now supported, for users of version 1.6.353 of Skyrim SE.
+- A workaround for a bug in "STB Widgets" versions 1.6-to-1.9 has been added. (The bug is that it supplies an invalid memory-address to SKSE's saving routines).
+- The handling of default values for booleans in the INI configuration file has been improved.
+---
+
+The song recommendation for this release is [this live performance of Kotringo's cover of 恋とマシンガン](https://www.youtube.com/watch?v=mygM8L3fpa0).
+
 ## Version 1.0.2 (2025-11-09)
 
 The third release of this plugin, the changes are as follows:
