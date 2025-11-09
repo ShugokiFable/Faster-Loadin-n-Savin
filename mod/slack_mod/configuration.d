@@ -29,6 +29,7 @@ struct ConfigurationLongLived
 		enableParallelSaving = 1 << 2,
 		logSaveTimingsToConsole = 1 << 4,
 		logLoadTimingsToConsole = 1 << 5,
+		workAroundThirdPartyBugs = 1 << 6,
 	}
 
 	void setToDefault () scope @safe pure nothrow @nogc
@@ -38,6 +39,7 @@ struct ConfigurationLongLived
 			| Flags.accelerateLoading
 			| Flags.logSaveTimingsToConsole
 			| Flags.logLoadTimingsToConsole
+			| Flags.workAroundThirdPartyBugs
 		);
 
 		this.parallelSavingThreadCount = 0;
@@ -178,6 +180,7 @@ void parseINIConfiguration (
 		mixin(iniKey!("accelerateloading", q{conditionallyMutateMask(configuration.flags, F.accelerateLoading, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("logsavetimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logSaveTimingsToConsole, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("logloadtimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logLoadTimingsToConsole, iniValueAsBoolean(a.value, true));}));
+		mixin(iniKey!("workaroundthirdpartybugs", q{conditionallyMutateMask(configuration.flags, F.workAroundThirdPartyBugs, iniValueAsBoolean(a.value, true));}));
 	};
 
 	/+ [ParallelSaving] +/
