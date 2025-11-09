@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.7 (2025-11-09)
+
+The eighth release of this plugin, the changes are as follows:
+- File-paths containing non-ASCII characters no longer cause saves to fail to load nor cause save creation to fail. \
+(Ironically, my efforts to fully support Unicode were what caused this issue, as the rest of the game's code relies on the restricted code-page of the system/user's locale.)
+---
+
+The song recommendation for this release is ["帰天" by 塚越雄一朗, featuring 皇黄リリエ](https://www.youtube.com/watch?v=ctO6lUgrBGU).
+
 ## Version 1.0.6 (2025-11-09)
 
 The seventh release of this plugin, the changes are as follows:
