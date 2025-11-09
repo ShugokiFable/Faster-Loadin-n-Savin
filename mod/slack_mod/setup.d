@@ -32,9 +32,7 @@ import skse64.hacks.versioning;
 import skse64.hacks.offsets;
 
 
-bool setUpEverything (
-	return scope ref wchar[MAX_PATH + 60] stringBuffer
-) nothrow @nogc
+bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 {
 	alias Config = ConfigurationLongLived.Flags;
 
@@ -46,6 +44,7 @@ bool setUpEverything (
 	const(wchar)[] errorMessage = void;
 	const(ubyte)[] ini = void;
 	const(wchar)* skseDLLName = void;
+	ushort skseDLLNameLength = void;
 
 	global.configuration.setToDefault;
 
@@ -64,6 +63,7 @@ bool setUpEverything (
 	noINIFile:
 		ini = null;
 		skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
+		skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
 	}
 	else
 	{
@@ -93,6 +93,8 @@ bool setUpEverything (
 		else
 		{
 			error = mapFileForReading(iniFile, &ini);
+
+			scope(exit) unmapFile(ini.ptr);
 
 			NtClose(iniFile);
 
@@ -130,19 +132,22 @@ bool setUpEverything (
 				*utf16 = '\0';
 
 				skseDLLName = stringBuffer.ptr;
+				skseDLLNameLength = cast(ushort) (cast(size_t) (utf16 - skseDLLName));
 			}
 			else
 			{
 			defaultSKSEDLLName:
 				skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
+				skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
 			}
 		}
 	}
 
-	scope(exit) if (ini !is null)
-	{
-		unmapFile(ini.ptr);
-	}
+	skseDLLNameLength = cast(ushort) lesserOf(skseDLLNameLength, global.configuration.skseDLLNameBuffer.length - 1);
+
+	blit(global.configuration.skseDLLNameBuffer.ptr, skseDLLName, skseDLLNameLength);
+	global.configuration.skseDLLNameBuffer[skseDLLNameLength] = '\0';
+	global.configuration.skseDLLName = global.configuration.skseDLLNameBuffer[0 .. skseDLLNameLength];
 
 	if (global.configuration.skseHooksAreRequired)
 	{
@@ -150,350 +155,408 @@ bool setUpEverything (
 
 		if ((skseDLL = cast(ubyte*) GetModuleHandleW(skseDLLName)) == null)
 		{
-			reportErrorToUser(
-				stringBuffer,
-				"The SKSE64 DLL could not be found.\r\nYou may need to set, or change, the value of the \"SKSEDLLName\" setting in the \"Save&LoadAcceleratorForSKSECosaves.ini\" file.",
-				hresultFromLastError(getLastError)
-			);
-			return false;
-		}
-
-		PESections sections = void;
-
-		if (findSectionsOfPE64(skseDLL, &sections) != 0)
-		{
-			reportErrorToUser("Some sections expected to be found in the SKSE64 DLL are missing.");
-			return false;
-		}
-
-		global.addressOf.globalSKSE64Provider = cast(SKSE64Provider*) (sections.rdata.ptr + skse64Offsets.globalSKSE64Provider);
-
-		if (global.addressOf.globalSKSE64Provider.skse64Version != expectedSKSE64Version)
-		{
-			wchar* s = stringBuffer.ptr;
-			blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
-			s += 204;
-			blit(s, "Expected version: 0x"w.ptr, 20);
-			s += 20;
-			expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
-			s += 8;
-			blit(s, "; Actual version: 0x"w.ptr, 20);
-			s += 20;
-			global.addressOf.globalSKSE64Provider.skse64Version.asHexInto!true(s[0 .. 8]);
-			s += 8;
-			*s++ = '.';
-			*s++ = '\0';
-			reportErrorToUser(stringBuffer.ptr);
-			return false;
-		}
-
-		MEM_ADDRESS_REQUIREMENTS _32BitAddressRange = {
-			LowestStartingAddress: sections.lastInMemory.endOf.alignUpTo(allocationGranularity) - 2.GB,
-			HighestEndingAddress: sections.firstInMemory.ptr.alignDownTo(allocationGranularity) + 2.GB - 1
-		};
-		MEM_EXTENDED_PARAMETER requirement = {
-			Type: MEM_EXTENDED_PARAMETER_TYPE.MemExtendedParameterAddressRequirements,
-			Pointer: &_32BitAddressRange
-		};
-
-		void* skseAdjacentMemory = null;
-		size_t size = 64.KB;
-		if ((error = NtAllocateVirtualMemoryEx(thisProcess, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &requirement, 1)) != 0)
-		{
-			errorMessage = "Memory could not be allocated sufficiently close to the SKSE64 DLL.";
-		reportErrorOnFailure:
-			reportErrorToUser(stringBuffer, errorMessage, error);
-			return false;
-		}
-
-		/+ To increase the likelihood of other mods patching SKSE being able
-		   to allocate within a 32-bit range of SKSE, we specifically avoid allocating
-		   within that range from hereon. +/
-
-		MEM_ADDRESS_REQUIREMENTS beforeSKSEAddressRange = {
-			LowestStartingAddress: null,
-			HighestEndingAddress: _32BitAddressRange.LowestStartingAddress - 1
-		};
-
-		MEM_ADDRESS_REQUIREMENTS afterSKSEAddressRange = {
-			LowestStartingAddress: _32BitAddressRange.HighestEndingAddress + 1,
-			HighestEndingAddress: null
-		};
-
-		requirement.Pointer = &beforeSKSEAddressRange;
-		if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
-		{
-			requirement.Pointer = &afterSKSEAddressRange;
-			if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
+			static if (shouldUseDLLNotifications)
 			{
-				errorMessage = "Memory could not be allocated for the cosave file buffer.";
-			errorWithSKSEAdjacentMemory:
-				size = 0;
-				NtFreeVirtualMemory(thisProcess, &skseAdjacentMemory, &size, MEM_RELEASE);
-				goto reportErrorOnFailure;
-			}
-		}
+				HANDLE ntdll = GetModuleHandleW("ntdll.dll");
+				auto ldrRegisterDllNotification = cast(LdrRegisterDllNotification) GetProcAddress(ntdll, "LdrRegisterDllNotification");
 
-		const(ubyte)* cosaveSaveFunction = void;
-		const(ubyte)* cosaveLoadFunction = void;
-
-		/+ "`goto` skips declaration of variable".
-		   Why must every edge of D be razor sharp? +/
-		ubyte parallelThreadCount = void;
-		const(void)* stackBase = void;
-		const(void)* stackLimit = void;
-		size_t stackReservation = void;
-		HANDLE threadHandle = void;
-		size_t threadIndex = void;
-
-		if (global.configuration.parallelismEnabled)
-		{
-			parallelThreadCount = global.configuration.adjustThreadCounts;
-
-			global.saveLoad.parallel.threadCount = parallelThreadCount;
-
-			requirement.Pointer = &beforeSKSEAddressRange;
-			if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
-			{
-				requirement.Pointer = &afterSKSEAddressRange;
-				if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
-				{
-					errorMessage = "Memory could not be allocated for the parallel cosave buffer.";
-				errorWithCosaveFileBuffer:
-					global.saveLoad.cosaveFileBuffer.free;
-					goto errorWithSKSEAdjacentMemory;
-				}
-			}
-
-			stackBase = readFromTIB!(const(void)*, int(NT_TIB.StackBase.offsetof));
-			stackLimit = readFromTIB!(const(void)*, int(NT_TIB.StackLimit.offsetof));
-
-			/+ We'll reserve the same amount of stack space as the main thread, to ensure compatibility. +/
-			stackReservation = stackBase - stackLimit;
-
-			for (threadIndex = 0; threadIndex < parallelThreadCount; ++threadIndex)
-			{
-				error = makeThread(
-					&threadHandle,
-					&parallelSaveLoadThreadProcedureEntry!(),
-					cast(void*) threadIndex,
-					0,
-					1.MB,
-					greaterOf(stackReservation, 1.MB)
-				);
+				error = ldrRegisterDllNotification(0, &dllRegistrationNotificationHandler!(), null, &global.dllRegistrationNotificationCookie);
 
 				if (error)
 				{
-					errorMessage = "A thread could not be created for parallel cosave handling.";
-				errorWithParallelCosaveThreads:
-					while (threadIndex != 0)
-					{
-						--threadIndex;
-						threadHandle = global.saveLoad.parallel.threadHandles[threadIndex];
-						NtClose(threadHandle);
-					}
-
-					goto errorWithCosaveFileBuffer;
+					reportErrorToUser(
+						stringBuffer,
+						"The DLL-registration-notification-handler could not be installed.",
+						getLastError
+					);
+					return false;
 				}
 
-				global.saveLoad.parallel.threadHandles[threadIndex] = threadHandle;
-			}
-
-			cosaveSaveFunction = cast(const(ubyte)*) (
-				  (global.configuration.flags & Config.enableParallelSaving)
-				? &saveCosaveParallel
-				: &saveCosaveSerial
-			);
-
-			cosaveLoadFunction = cast(const(ubyte)*) &loadCosaveSerial;
-		}
-		else
-		{
-			cosaveSaveFunction = cast(const(ubyte)*) &saveCosaveSerial;
-			cosaveLoadFunction = cast(const(ubyte)*) &loadCosaveSerial;
-		}
-
-		void* exceptionHandler = RtlAddVectoredExceptionHandler(1, &vectoredExceptionHandler!());
-
-		if (exceptionHandler == null)
-		{
-			errorMessage = "The vectored-exception-handler could not be registered.";
-		errorWithVectoredExceptionHandler:
-			RtlRemoveVectoredExceptionHandler(exceptionHandler);
-
-			if (global.configuration.parallelismEnabled)
-			{
-				goto errorWithParallelCosaveThreads;
+				return true;
 			}
 			else
 			{
+				reportErrorToUser(
+					stringBuffer,
+					"The SKSE64 DLL could not be found.\r\nYou may need to set, or change, the value of the \"SKSEDLLName\" setting in the \"Save&LoadAcceleratorForSKSECosaves.ini\" file.",
+					hresultFromLastError(getLastError)
+				);
+				return false;
+			}
+		}
+
+		return setUpEverythingWithSKSEDLL(stringBuffer, skseDLL);
+	}
+
+	return true;
+}
+
+
+bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, scope ubyte* skseDLL) nothrow @nogc
+{
+	alias Config = ConfigurationLongLived.Flags;
+
+	assert(global.configuration.skseHooksAreRequired);
+
+	uint error = void;
+	const(wchar)[] errorMessage = void;
+
+	PESections sections = void;
+
+	if (findSectionsOfPE64(skseDLL, &sections) != 0)
+	{
+		reportErrorToUser("Some sections expected to be found in the SKSE64 DLL are missing.");
+		return false;
+	}
+
+	global.addressOf.globalSKSE64Provider = cast(SKSE64Provider*) (sections.rdata.ptr + skse64Offsets.globalSKSE64Provider);
+
+	if (global.addressOf.globalSKSE64Provider.skse64Version != expectedSKSE64Version)
+	{
+		wchar* s = stringBuffer.ptr;
+		blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
+		s += 204;
+		blit(s, "Expected version: 0x"w.ptr, 20);
+		s += 20;
+		expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
+		s += 8;
+		blit(s, "; Actual version: 0x"w.ptr, 20);
+		s += 20;
+		global.addressOf.globalSKSE64Provider.skse64Version.asHexInto!true(s[0 .. 8]);
+		s += 8;
+		*s++ = '.';
+		*s++ = '\0';
+		reportErrorToUser(stringBuffer.ptr);
+		return false;
+	}
+
+	MEM_ADDRESS_REQUIREMENTS _32BitAddressRange = {
+		LowestStartingAddress: sections.lastInMemory.endOf.alignUpTo(allocationGranularity) - 2.GB,
+		HighestEndingAddress: sections.firstInMemory.ptr.alignDownTo(allocationGranularity) + 2.GB - 1
+	};
+	MEM_EXTENDED_PARAMETER requirement = {
+		Type: MEM_EXTENDED_PARAMETER_TYPE.MemExtendedParameterAddressRequirements,
+		Pointer: &_32BitAddressRange
+	};
+
+	void* skseAdjacentMemory = null;
+	size_t size = 64.KB;
+	if ((error = NtAllocateVirtualMemoryEx(thisProcess, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &requirement, 1)) != 0)
+	{
+		errorMessage = "Memory could not be allocated sufficiently close to the SKSE64 DLL.";
+	reportErrorOnFailure:
+		reportErrorToUser(stringBuffer, errorMessage, error);
+		return false;
+	}
+
+	/+ To increase the likelihood of other mods patching SKSE being able
+	   to allocate within a 32-bit range of SKSE, we specifically avoid allocating
+	   within that range from hereon. +/
+
+	MEM_ADDRESS_REQUIREMENTS beforeSKSEAddressRange = {
+		LowestStartingAddress: null,
+		HighestEndingAddress: _32BitAddressRange.LowestStartingAddress - 1
+	};
+
+	MEM_ADDRESS_REQUIREMENTS afterSKSEAddressRange = {
+		LowestStartingAddress: _32BitAddressRange.HighestEndingAddress + 1,
+		HighestEndingAddress: null
+	};
+
+	requirement.Pointer = &beforeSKSEAddressRange;
+	if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
+	{
+		requirement.Pointer = &afterSKSEAddressRange;
+		if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
+		{
+			errorMessage = "Memory could not be allocated for the cosave file buffer.";
+		errorWithSKSEAdjacentMemory:
+			size = 0;
+			NtFreeVirtualMemory(thisProcess, &skseAdjacentMemory, &size, MEM_RELEASE);
+			goto reportErrorOnFailure;
+		}
+	}
+
+	const(ubyte)* cosaveSaveFunction = void;
+	const(ubyte)* cosaveLoadFunction = void;
+
+	/+ "`goto` skips declaration of variable".
+	   Why must every edge of D be razor sharp? +/
+	ubyte parallelThreadCount = void;
+	const(void)* stackBase = void;
+	const(void)* stackLimit = void;
+	size_t stackReservation = void;
+	HANDLE threadHandle = void;
+	size_t threadIndex = void;
+
+	if (global.configuration.parallelismEnabled)
+	{
+		parallelThreadCount = global.configuration.adjustThreadCounts;
+
+		global.saveLoad.parallel.threadCount = parallelThreadCount;
+
+		requirement.Pointer = &beforeSKSEAddressRange;
+		if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
+		{
+			requirement.Pointer = &afterSKSEAddressRange;
+			if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
+			{
+				errorMessage = "Memory could not be allocated for the parallel cosave buffer.";
+			errorWithCosaveFileBuffer:
+				global.saveLoad.cosaveFileBuffer.free;
 				goto errorWithSKSEAdjacentMemory;
 			}
 		}
 
-		global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
-		global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
-		global.addressOf.skseInitialiseCall = sections.text.ptr + skse64Offsets.initialiseCall;
-		global.addressOf.createSKSECosave = sections.text.ptr + skse64Offsets.createCosave;
-		global.addressOf.restoreSKSECosave = sections.text.ptr + skse64Offsets.restoreCosave;
-		global.addressOf.createSKSECosaveCall = sections.text.ptr + skse64Offsets.createCosaveCall;
-		global.addressOf.restoreSKSECosaveCall = sections.text.ptr + skse64Offsets.restoreCosaveCall;
-		global.addressOf.skseConsolePrint = cast(typeof(global.addressOf.skseConsolePrint)) (sections.text.ptr + skse64Offsets.consolePrint);
+		stackBase = readFromTIB!(const(void)*, int(NT_TIB.StackBase.offsetof));
+		stackLimit = readFromTIB!(const(void)*, int(NT_TIB.StackLimit.offsetof));
 
+		/+ We'll reserve the same amount of stack space as the main thread, to ensure compatibility. +/
+		stackReservation = stackBase - stackLimit;
+
+		for (threadIndex = 0; threadIndex < parallelThreadCount; ++threadIndex)
+		{
+			error = makeThread(
+				&threadHandle,
+				&parallelSaveLoadThreadProcedureEntry!(),
+				cast(void*) threadIndex,
+				0,
+				1.MB,
+				greaterOf(stackReservation, 1.MB)
+			);
+
+			if (error)
+			{
+				errorMessage = "A thread could not be created for parallel cosave handling.";
+			errorWithParallelCosaveThreads:
+				while (threadIndex != 0)
+				{
+					--threadIndex;
+					threadHandle = global.saveLoad.parallel.threadHandles[threadIndex];
+					NtClose(threadHandle);
+				}
+
+				goto errorWithCosaveFileBuffer;
+			}
+
+			global.saveLoad.parallel.threadHandles[threadIndex] = threadHandle;
+		}
+
+		cosaveSaveFunction = cast(const(ubyte)*) (
+			  (global.configuration.flags & Config.enableParallelSaving)
+			? &saveCosaveParallel
+			: &saveCosaveSerial
+		);
+
+		cosaveLoadFunction = cast(const(ubyte)*) &loadCosaveSerial;
+	}
+	else
+	{
+		cosaveSaveFunction = cast(const(ubyte)*) &saveCosaveSerial;
+		cosaveLoadFunction = cast(const(ubyte)*) &loadCosaveSerial;
+	}
+
+	void* exceptionHandler = RtlAddVectoredExceptionHandler(1, &vectoredExceptionHandler!());
+
+	if (exceptionHandler == null)
+	{
+		errorMessage = "The vectored-exception-handler could not be registered.";
+	errorWithVectoredExceptionHandler:
+		RtlRemoveVectoredExceptionHandler(exceptionHandler);
+
+		if (global.configuration.parallelismEnabled)
+		{
+			goto errorWithParallelCosaveThreads;
+		}
+		else
+		{
+			goto errorWithSKSEAdjacentMemory;
+		}
+	}
+
+	global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
+	global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
+	global.addressOf.createSKSECosave = sections.text.ptr + skse64Offsets.createCosave;
+	global.addressOf.restoreSKSECosave = sections.text.ptr + skse64Offsets.restoreCosave;
+	global.addressOf.createSKSECosaveCall = sections.text.ptr + skse64Offsets.createCosaveCall;
+	global.addressOf.restoreSKSECosaveCall = sections.text.ptr + skse64Offsets.restoreCosaveCall;
+	global.addressOf.skseConsolePrint = cast(typeof(global.addressOf.skseConsolePrint)) (sections.text.ptr + skse64Offsets.consolePrint);
+
+	static if (targetedGameArchetype != GameArchetype.se)
+	{
+		global.addressOf.skseInitialiseCall = sections.text.ptr + skse64Offsets.initialiseCall;
+	}
+	else
+	{
+		global.addressOf.skseInitialiseTailReturn = sections.text.ptr + skse64Offsets.initialiseTailReturn;
+	}
+
+	ubyte* code = cast(ubyte*) skseAdjacentMemory;
+	ubyte* c = code;
+
+	ubyte* skseInitialiseHook = c;
+
+	static if (targetedGameArchetype != GameArchetype.se)
+	{
 		const(ubyte)* skseInitialise = x86TargetOf!5(global.addressOf.skseInitialiseCall);
 
-		ubyte* code = cast(ubyte*) skseAdjacentMemory;
-		ubyte* c = code;
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;             /+ sub rsp, 40 +/
+		c.writeDirectCallOf(skseInitialise); c += 5;                             /+ call skseInitialise +/
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;             /+ add rsp, 40 +/
+		c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
 
-		ubyte* skseInitialiseHook = c;
+		withCodeRegionMadeWritable(
+			global.addressOf.skseInitialiseCall,
+			5,
+			(scope ubyte* a, size_t s) {a.writeDirectCallOf(skseInitialiseHook);}
+		);
+	}
+	else
+	{
+		/+ SE is slightly different here in that `skseInitialiseCall`
+		   is a jmp instead of a call, and for whatever reason,
+		   changing it causes the game to crash, so instead we patch
+		   the initialisation function itself. +/
 
-		static if (targetedGameArchetype != GameArchetype.se)
+		const(ubyte)* tailCall = x86TargetOf!5(global.addressOf.skseInitialiseTailReturn);
+
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;             /+ sub rsp, 40 +/
+		c.writeDirectCallOf(tailCall); c += 5;                                   /+ call tailCall +/
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;             /+ add rsp, 40 +/
+		c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
+
+		withCodeRegionMadeWritable(
+			global.addressOf.skseInitialiseTailReturn,
+			5,
+			(scope ubyte* a, size_t s) {a.writeNearJumpTo(skseInitialiseHook);}
+		);
+	}
+
+	version (SLACKVerificationMode)
+	{
+		enum bool replaceSaveCosave = false;
+	}
+	else
+	{
+		bool replaceSaveCosave = (global.configuration.flags & Config.accelerateSaving) != 0;
+	}
+
+	if (replaceSaveCosave)
+	{
+		c = c.alignUpTo(16);
+		ubyte* createCosaveReplacement = c;
+		c += c.writeJumpTo(cosaveSaveFunction); /+ jmp cosaveSaveFunction +/
+
+		withCodeRegionMadeWritable(
+			global.addressOf.createSKSECosave,
+			5,
+			(scope ubyte* a, size_t s) {a.writeNearJumpTo(createCosaveReplacement);}
+		);
+
+		FlushInstructionCache(thisProcess, global.addressOf.createSKSECosave, 5);
+	}
+	else if (global.configuration.flags & Config.logSaveTimingsToConsole)
+	{
+		version (SLACKVerificationMode)
 		{
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;             /+ sub rsp, 40 +/
-			c.writeDirectCallOf(skseInitialise); c += 5;                             /+ call skseInitialise +/
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;             /+ add rsp, 40 +/
-			c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
-
-			withCodeRegionMadeWritable(
-				global.addressOf.skseInitialiseCall,
-				5,
-				(scope ubyte* a, size_t s) {a.writeDirectCallOf(skseInitialiseHook);}
-			);
+			const(ubyte)* createSKSECosaveCallTarget = cast(const(ubyte)*) &saveCosaveInVerificationMode;
 		}
 		else
 		{
-			/+ SE is slightly different here in that `skseInitialiseCall`
-			   is a jmp instead of a call. +/
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 32;             /+ sub rsp, 32 +/
-			c.writeDirectCallOf(skseInitialise); c += 5;                             /+ call skseInitialise +/
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 32;             /+ add rsp, 32 +/
-			c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
-
-			withCodeRegionMadeWritable(
-				global.addressOf.skseInitialiseCall,
-				5,
-				(scope ubyte* a, size_t s) {a.writeNearJumpTo(skseInitialiseHook);}
-			);
+			const(ubyte)* createSKSECosaveCallTarget = x86TargetOf!5(global.addressOf.createSKSECosaveCall);
 		}
 
+		c = c.alignUpTo(16);
+		ubyte* createCosaveCallReplacement = c;
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;               /+ sub rsp, 40 +/
+		c += c.writeCallOf(cast(const(ubyte)*) &logUnpatchedSaveLoadTimingBefore); /+ call logUnpatchedSaveLoadTimingBefore +/
 		version (SLACKVerificationMode)
 		{
-			enum bool replaceSaveCosave = false;
+			c += c.writeCallOf(createSKSECosaveCallTarget);          /+ call createSKSECosaveCallTarget +/
 		}
 		else
 		{
-			bool replaceSaveCosave = (global.configuration.flags & Config.accelerateSaving) != 0;
+			c.writeDirectCallOf(createSKSECosaveCallTarget); c += 5; /+ call createSKSECosaveCallTarget +/
 		}
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;               /+ add rsp, 40 +/
+		c += c.writeJumpTo(cast(const(ubyte)*) &logUnpatchedSaveTimingAfter);      /+ jmp logUnpatchedSaveTimingAfter +/
 
-		if (replaceSaveCosave)
-		{
-			c = c.alignUpTo(16);
-			ubyte* createCosaveReplacement = c;
-			c += c.writeJumpTo(cosaveSaveFunction); /+ jmp cosaveSaveFunction +/
+		withCodeRegionMadeWritable(
+			global.addressOf.createSKSECosaveCall,
+			5,
+			(scope ubyte* a, size_t s) {a.writeDirectCallOf(createCosaveCallReplacement);}
+		);
 
-			withCodeRegionMadeWritable(
-				global.addressOf.createSKSECosave,
-				5,
-				(scope ubyte* a, size_t s) {a.writeNearJumpTo(createCosaveReplacement);}
-			);
+		FlushInstructionCache(thisProcess, global.addressOf.createSKSECosaveCall, 5);
+	}
 
-			FlushInstructionCache(thisProcess, global.addressOf.createSKSECosave, 5);
-		}
-		else if (global.configuration.flags & Config.logSaveTimingsToConsole)
-		{
-			version (SLACKVerificationMode)
-			{
-				const(ubyte)* createSKSECosaveCallTarget = cast(const(ubyte)*) &saveCosaveInVerificationMode;
-			}
-			else
-			{
-				const(ubyte)* createSKSECosaveCallTarget = x86TargetOf!5(global.addressOf.createSKSECosaveCall);
-			}
+	if (global.configuration.flags & Config.accelerateLoading)
+	{
+		c = c.alignUpTo(16);
+		ubyte* restoreCosaveReplacement = c;
+		c += c.writeJumpTo(cosaveLoadFunction); /+ jmp cosaveLoadFunction +/
 
-			c = c.alignUpTo(16);
-			ubyte* createCosaveCallReplacement = c;
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;               /+ sub rsp, 40 +/
-			c += c.writeCallOf(cast(const(ubyte)*) &logUnpatchedSaveLoadTimingBefore); /+ call logUnpatchedSaveLoadTimingBefore +/
-			version (SLACKVerificationMode)
-			{
-				c += c.writeCallOf(createSKSECosaveCallTarget);          /+ call createSKSECosaveCallTarget +/
-			}
-			else
-			{
-				c.writeDirectCallOf(createSKSECosaveCallTarget); c += 5; /+ call createSKSECosaveCallTarget +/
-			}
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;               /+ add rsp, 40 +/
-			c += c.writeJumpTo(cast(const(ubyte)*) &logUnpatchedSaveTimingAfter);      /+ jmp logUnpatchedSaveTimingAfter +/
+		withCodeRegionMadeWritable(
+			global.addressOf.restoreSKSECosave,
+			5,
+			(scope ubyte* a, size_t s) {a.writeNearJumpTo(restoreCosaveReplacement);}
+		);
 
-			withCodeRegionMadeWritable(
-				global.addressOf.createSKSECosaveCall,
-				5,
-				(scope ubyte* a, size_t s) {a.writeDirectCallOf(createCosaveCallReplacement);}
-			);
+		FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosave, 5);
+	}
+	else if (global.configuration.flags & Config.logLoadTimingsToConsole)
+	{
+		const(ubyte)* restoreSKSECosaveCallTarget = x86TargetOf!5(global.addressOf.restoreSKSECosaveCall);
 
-			FlushInstructionCache(thisProcess, global.addressOf.createSKSECosaveCall, 5);
-		}
+		c = c.alignUpTo(16);
+		ubyte* restoreCosaveCallReplacement = c;
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;               /+ sub rsp, 40 +/
+		c += c.writeCallOf(cast(const(ubyte)*) &logUnpatchedSaveLoadTimingBefore); /+ call logUnpatchedSaveLoadTimingBefore +/
+		c.writeDirectCallOf(restoreSKSECosaveCallTarget); c += 5;                  /+ call restoreSKSECosaveCallTarget +/
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;               /+ add rsp, 40 +/
+		c += c.writeJumpTo(cast(const(ubyte)*) &logUnpatchedLoadTimingAfter);      /+ jmp logUnpatchedLoadTimingAfter +/
 
-		if (global.configuration.flags & Config.accelerateLoading)
-		{
-			c = c.alignUpTo(16);
-			ubyte* restoreCosaveReplacement = c;
-			c += c.writeJumpTo(cosaveLoadFunction); /+ jmp cosaveLoadFunction +/
+		withCodeRegionMadeWritable(
+			global.addressOf.restoreSKSECosaveCall,
+			5,
+			(scope ubyte* a, size_t s) {a.writeDirectCallOf(restoreCosaveCallReplacement);}
+		);
 
-			withCodeRegionMadeWritable(
-				global.addressOf.restoreSKSECosave,
-				5,
-				(scope ubyte* a, size_t s) {a.writeNearJumpTo(restoreCosaveReplacement);}
-			);
+		FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosaveCall, 5);
+	}
 
-			FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosave, 5);
-		}
-		else if (global.configuration.flags & Config.logLoadTimingsToConsole)
-		{
-			const(ubyte)* restoreSKSECosaveCallTarget = x86TargetOf!5(global.addressOf.restoreSKSECosaveCall);
+	version (SLACKVerificationMode)
+	{
+		size_t regionSize = 512.MB;
+		NtAllocateVirtualMemory(thisProcess, cast(void**) &global.saveLoad.verificationBase, 0, &regionSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		global.saveLoad.verificationTail = global.saveLoad.verificationBase + regionSize;
 
-			c = c.alignUpTo(16);
-			ubyte* restoreCosaveCallReplacement = c;
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;               /+ sub rsp, 40 +/
-			c += c.writeCallOf(cast(const(ubyte)*) &logUnpatchedSaveLoadTimingBefore); /+ call logUnpatchedSaveLoadTimingBefore +/
-			c.writeDirectCallOf(restoreSKSECosaveCallTarget); c += 5;                  /+ call restoreSKSECosaveCallTarget +/
-			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;               /+ add rsp, 40 +/
-			c += c.writeJumpTo(cast(const(ubyte)*) &logUnpatchedLoadTimingAfter);      /+ jmp logUnpatchedLoadTimingAfter +/
+		const(ubyte)* restoreSKSECosaveCallTarget = cast(const(ubyte)*) &callLoadCosaveInVerificationMode;
 
-			withCodeRegionMadeWritable(
-				global.addressOf.restoreSKSECosaveCall,
-				5,
-				(scope ubyte* a, size_t s) {a.writeDirectCallOf(restoreCosaveCallReplacement);}
-			);
+		c = c.alignUpTo(16);
+		ubyte* restoreCosaveCallReplacement = c;
+		c += c.writeJumpTo(restoreSKSECosaveCallTarget); /+ jmp restoreSKSECosaveCallTarget +/
 
-			FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosaveCall, 5);
-		}
+		withCodeRegionMadeWritable(
+			global.addressOf.restoreSKSECosaveCall,
+			5,
+			(scope ubyte* a, size_t s) {a.writeDirectCallOf(restoreCosaveCallReplacement);}
+		);
 
-		version (SLACKVerificationMode)
-		{
-			size_t regionSize = 512.MB;
-			NtAllocateVirtualMemory(thisProcess, cast(void**) &global.saveLoad.verificationBase, 0, &regionSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-			global.saveLoad.verificationTail = global.saveLoad.verificationBase + regionSize;
+		FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosaveCall, 5);
+	}
 
-			const(ubyte)* restoreSKSECosaveCallTarget = cast(const(ubyte)*) &callLoadCosaveInVerificationMode;
+	makeMemoryRegionExecutable(code, 4.KB);
 
-			c = c.alignUpTo(16);
-			ubyte* restoreCosaveCallReplacement = c;
-			c += c.writeJumpTo(restoreSKSECosaveCallTarget); /+ jmp restoreSKSECosaveCallTarget +/
+	FlushInstructionCache(thisProcess, code, 4.KB);
 
-			withCodeRegionMadeWritable(
-				global.addressOf.restoreSKSECosaveCall,
-				5,
-				(scope ubyte* a, size_t s) {a.writeDirectCallOf(restoreCosaveCallReplacement);}
-			);
-
-			FlushInstructionCache(thisProcess, global.addressOf.restoreSKSECosaveCall, 5);
-		}
-
-		makeMemoryRegionExecutable(code, 4.KB);
-
-		FlushInstructionCache(thisProcess, code, 4.KB);
+	static if (targetedGameArchetype != GameArchetype.se)
+	{
 		FlushInstructionCache(thisProcess, global.addressOf.skseInitialiseCall, 5);
+	}
+	else
+	{
+		FlushInstructionCache(thisProcess, global.addressOf.skseInitialiseTailReturn, 5);
 	}
 
 	return true;

@@ -18,6 +18,8 @@ struct ConfigurationLongLived
 {
 	Flags flags;
 	ubyte parallelSavingThreadCount;
+	wchar[] skseDLLName;
+	wchar[256] skseDLLNameBuffer;
 
 	enum Flags : uint
 	{

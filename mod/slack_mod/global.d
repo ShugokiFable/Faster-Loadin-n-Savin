@@ -3,12 +3,16 @@
 
 module slack_mod.global;
 
+import game;
+
 import slack_common.algorithms;
 import slack_common.bindings;
 import slack_common.cpp;
+import slack_common.text;
 import slack_common.user_interface;
 import slack_mod.configuration;
 import slack_mod.save_load;
+import slack_mod.setup;
 
 import skse64.dll_plugins;
 import skse64.serialisation;
@@ -17,12 +21,21 @@ import skse64.serialisation;
 __gshared GlobalState global;
 
 
+enum bool shouldUseDLLNotifications = targetedGameVersion < 0x01_06_000_0;
+
+
 struct GlobalState
 {
 	HMODULE dllModule;
 	ulong performanceFrequency;
 	double performanceFrequencyMillisecondMultiplier = 0;
 	bool haveWarnedUserAboutNearlyReachingSaveFileSizeLimit;
+
+	static if (shouldUseDLLNotifications)
+	{
+		void* dllRegistrationNotificationCookie;
+	}
+
 	ResolvedAddresses addressOf;
 	ConfigurationLongLived configuration;
 	SaveLoadState saveLoad;
@@ -35,7 +48,16 @@ struct ResolvedAddresses
 	SerialisationProvider* globalSerialisationProvider;
 	std_string* skseCosaveSavePath;
 	std_vector!SerialisationStateForPlugin* cosaveAwarePlugins;
-	ubyte* skseInitialiseCall;
+
+	static if (targetedGameArchetype != GameArchetype.se)
+	{
+		ubyte* skseInitialiseCall;
+	}
+	else
+	{
+		ubyte* skseInitialiseTailReturn;
+	}
+
 	ubyte* createSKSECosave;
 	ubyte* restoreSKSECosave;
 	ubyte* createSKSECosaveCall;
@@ -49,6 +71,34 @@ struct ResolvedAddresses
 		typeof(SerialisationProvider.writeRecordData) skseSerialisationWriteRecordData;
 		typeof(SerialisationProvider.readNextRecordHeader) readNextRecordHeader;
 		typeof(SerialisationProvider.readRecordData) readRecordData;
+	}
+}
+
+
+static if (shouldUseDLLNotifications)
+{
+	extern(Windows)
+	void dllRegistrationNotificationHandler () (uint reason, scope const(LDR_DLL_NOTIFICATION_DATA)* notification, scope void* context) nothrow @nogc
+	{
+		if (reason == LDR_DLL_NOTIFICATION_REASON_LOADED)
+		{
+			const(wchar[])* skseDLLName = &global.configuration.skseDLLName;
+
+			if ((notification.Loaded.BaseDllName.Length >>> 1) == skseDLLName.length)
+			{
+				if (caseInsensitiveASCIIEquality(notification.Loaded.BaseDllName.Buffer, skseDLLName.ptr, skseDLLName.length))
+				{
+					wchar[MAX_PATH + 60] stringBuffer = void;
+
+					setUpEverythingWithSKSEDLL(stringBuffer, cast(ubyte*) notification.Loaded.DllBase);
+
+					HANDLE ntdll = GetModuleHandleW("ntdll.dll");
+					auto ldrUnregisterDllNotification = cast(LdrUnregisterDllNotification) GetProcAddress(ntdll, "LdrUnregisterDllNotification");
+
+					ldrUnregisterDllNotification(global.dllRegistrationNotificationCookie);
+				}
+			}
+		}
 	}
 }
 

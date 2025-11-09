@@ -10,7 +10,8 @@ enum VersionedOffsets versionedOffsets = {
 	globalSKSE64Provider: {ae: 0x0000b480, ae640: 0x0000b470, se: 0x0000dad8, vr: 0x0000de20, gog: 0x0000b140, gog659: 0x0000b488}, /+ .rdata +/
 	      cosaveSavePath: {ae: 0x00001b18, ae640: 0x00001b18, se: 0x00001b78, vr: 0x000141e0, gog: 0x00001b18, gog659: 0x00001b18}, /+ .data +/
 	  cosaveAwarePlugins: {ae: 0x00010d88, ae640: 0x00010d40, se: 0x000123a8, vr: 0x000141c8, gog: 0x00010bd8, gog659: 0x00010d30}, /+ .data +/
-	      initialiseCall: {ae: 0x00088c44, ae640: 0x00088a84, se: 0x00087240, vr: 0x0009c140, gog: 0x0008afb4, gog659: 0x00088c54}, /+ .text +/
+	      initialiseCall: {ae: 0x00088c44, ae640: 0x00088a84, se: 0x00000000, vr: 0x0009c140, gog: 0x0008afb4, gog659: 0x00088c54}, /+ .text +/
+	initialiseTailReturn: {ae: 0x00000000, ae640: 0x00000000, se: 0x00087227, vr: 0x00000000, gog: 0x00000000, gog659: 0x00000000}, /+ .text +/
 	        createCosave: {ae: 0x000874f0, ae640: 0x00087330, se: 0x000854e0, vr: 0x0009af50, gog: 0x00089820, gog659: 0x00087510}, /+ .text +/
 	       restoreCosave: {ae: 0x00087700, ae640: 0x00087540, se: 0x000856f0, vr: 0x0009b230, gog: 0x00089a30, gog659: 0x00087720}, /+ .text +/
 	    createCosaveCall: {ae: 0x0000e8df, ae640: 0x0000e82f, se: 0x0000e6ff, vr: 0x0000f6af, gog: 0x0000e85f, gog659: 0x0000e67f}, /+ .text +/
@@ -43,6 +44,7 @@ struct VersionedOffsets
 	VersionedOffset cosaveSavePath;
 	VersionedOffset cosaveAwarePlugins;
 	VersionedOffset initialiseCall;
+	VersionedOffset initialiseTailReturn;
 	VersionedOffset createCosave;
 	VersionedOffset restoreCosave;
 	VersionedOffset createCosaveCall;
