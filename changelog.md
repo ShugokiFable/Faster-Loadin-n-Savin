@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.4 (2025-11-09)
+
+The fifth release of this plugin, the changes are as follows:
+- A crash that could occur when launching the game may have been fixed.
+---
+
+The song recommendation for this release is ["Declaration of Complete Resignation" by Nanawo Akari](https://www.youtube.com/watch?v=Vi_asBY5UX8) \
+Don't read too much into that choice ;)
+
 ## Version 1.0.3 (2025-11-09)
 
 The fourth release of this plugin, the changes are as follows:
