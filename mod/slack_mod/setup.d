@@ -46,7 +46,6 @@ bool setUpEverything (
 	const(wchar)[] errorMessage = void;
 	const(ubyte)[] ini = void;
 	const(wchar)* skseDLLName = void;
-	ushort skseDLLNameLength = void;
 
 	global.configuration.setToDefault;
 
@@ -65,7 +64,6 @@ bool setUpEverything (
 	noINIFile:
 		ini = null;
 		skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
-		skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
 	}
 	else
 	{
@@ -132,13 +130,11 @@ bool setUpEverything (
 				*utf16 = '\0';
 
 				skseDLLName = stringBuffer.ptr;
-				skseDLLNameLength = cast(ushort) (cast(size_t) (utf16 - skseDLLName));
 			}
 			else
 			{
 			defaultSKSEDLLName:
 				skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
-				skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
 			}
 		}
 	}
@@ -152,13 +148,12 @@ bool setUpEverything (
 	{
 		ubyte* skseDLL = void;
 
-		auto skseDLLNameString = const(UNICODE_STRING).from(skseDLLName, skseDLLNameLength);
-		if ((error = LdrGetDllHandle(null, null, &skseDLLNameString, cast(HMODULE*) &skseDLL)) != 0)
+		if ((skseDLL = cast(ubyte*) GetModuleHandleW(skseDLLName)) == null)
 		{
 			reportErrorToUser(
 				stringBuffer,
 				"The SKSE64 DLL could not be found.\r\nYou may need to set, or change, the value of the \"SKSEDLLName\" setting in the \"Save&LoadAcceleratorForSKSECosaves.ini\" file.",
-				error
+				hresultFromLastError(getLastError)
 			);
 			return false;
 		}
