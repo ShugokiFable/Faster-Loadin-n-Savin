@@ -23,7 +23,7 @@ try
 {
 	$INIFilePath = "$Source/Save&LoadAcceleratorForSKSECosaves.ini"
 
-	$Variants = @('ae', 'se', 'vr', 'gog')
+	$Variants = @('ae', 'ae640', 'se', 'vr', 'gog', 'gog659')
 
 	ForEach-InParallel $Variants `
 	{
@@ -50,7 +50,7 @@ try
 			Copy-Item -Force -LiteralPath "$BuildVariant/Save&LoadAcceleratorForSKSECosaves.pdb" -Destination DLLPlugins
 			Copy-Item -Force -LiteralPath $INIFilePath -Destination DLLPlugins
 
-			$ZipFilePath = "../../Save & Load Accelerator For SKSE Cosaves ($($Variant.ToUpperInvariant()))$(if ($Configuration -ne 'Release') {" ($Configuration)"}).zip"
+			$ZipFilePath = "../../Save & Load Accelerator For SKSE Cosaves ($($Variant.ToUpperInvariant() -replace '([a-z])([0-9])', '$1 $2'))$(if ($Configuration -ne 'Release') {" ($Configuration)"}).zip"
 
 			Remove-Item -Force -LiteralPath $ZipFilePath -ErrorAction Ignore
 			7za u -sse -mx9 $ZipFilePath * > $Null

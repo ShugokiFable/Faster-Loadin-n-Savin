@@ -118,6 +118,10 @@ try
 					Files = "$SourceBase/game/target_ae.d"
 				}
 				[PSCustomObject] @{
+					Name = 'ae640'
+					Files = "$SourceBase/game/target_ae640.d"
+				}
+				[PSCustomObject] @{
 					Name = 'se'
 					Files = "$SourceBase/game/target_se.d"
 				}
@@ -128,6 +132,10 @@ try
 				[PSCustomObject] @{
 					Name = 'gog'
 					Files = "$SourceBase/game/target_gog.d"
+				}
+				[PSCustomObject] @{
+					Name = 'gog659'
+					Files = "$SourceBase/game/target_gog659.d"
 				}
 			)
 		}
