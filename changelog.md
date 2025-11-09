@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.2 (2025-11-09)
+
+The third release of this plugin, the changes are as follows:
+- Support for version 2.0.20 of SKSE has been fixed, for users of version 1.5.97 of Skyrim SE.
+- The version of the plugin is now displayed in the title of error-message dialogs.
+---
+
+The song recommendation for this release is ["白雪 Evil Snow" by Hatsuki Yura](https://www.youtube.com/watch?v=V687A50cPQ8).
+
 ## Version 1.0.1 (2025-11-09)
 
 The second release of this plugin, the changes are as follows:
