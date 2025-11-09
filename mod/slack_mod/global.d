@@ -22,6 +22,7 @@ __gshared GlobalState global;
 
 
 enum bool shouldUseDLLNotifications = targetedGameVersion < 0x01_06_000_0;
+enum bool hookingSKSEInitialiseViaCall = targetedGameArchetype != GameArchetype.se && targetedGameArchetype != GameArchetype.ae353;
 
 
 struct GlobalState
@@ -53,7 +54,7 @@ struct ResolvedAddresses
 	std_string* skseCosaveSavePath;
 	std_vector!SerialisationStateForPlugin* cosaveAwarePlugins;
 
-	static if (targetedGameArchetype != GameArchetype.se)
+	static if (hookingSKSEInitialiseViaCall)
 	{
 		ubyte* skseInitialiseCall;
 	}

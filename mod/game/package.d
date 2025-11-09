@@ -10,6 +10,7 @@ enum GameArchetype : ubyte
 {
 	ae,
 	ae640,
+	ae353,
 	se,
 	vr,
 	gog,

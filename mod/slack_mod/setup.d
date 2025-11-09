@@ -385,7 +385,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 	global.addressOf.restoreSKSECosaveCall = sections.text.ptr + skse64Offsets.restoreCosaveCall;
 	global.addressOf.skseConsolePrint = cast(typeof(global.addressOf.skseConsolePrint)) (sections.text.ptr + skse64Offsets.consolePrint);
 
-	static if (targetedGameArchetype != GameArchetype.se)
+	static if (hookingSKSEInitialiseViaCall)
 	{
 		global.addressOf.skseInitialiseCall = sections.text.ptr + skse64Offsets.initialiseCall;
 	}
@@ -399,7 +399,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 	ubyte* skseInitialiseHook = c;
 
-	static if (targetedGameArchetype != GameArchetype.se)
+	static if (hookingSKSEInitialiseViaCall)
 	{
 		const(ubyte)* skseInitialise = x86TargetOf!5(global.addressOf.skseInitialiseCall);
 
@@ -416,7 +416,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 	}
 	else
 	{
-		/+ SE is slightly different here in that `skseInitialiseCall`
+		/+ SE, and AE353 are slightly different here in that `skseInitialiseCall`
 		   is a jmp instead of a call, and for whatever reason,
 		   changing it causes the game to crash, so instead we patch
 		   the initialisation function itself. +/
@@ -592,7 +592,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 	FlushInstructionCache(thisProcess, code, 4.KB);
 
-	static if (targetedGameArchetype != GameArchetype.se)
+	static if (hookingSKSEInitialiseViaCall)
 	{
 		FlushInstructionCache(thisProcess, global.addressOf.skseInitialiseCall, 5);
 	}
