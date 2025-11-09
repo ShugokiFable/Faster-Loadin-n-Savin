@@ -77,12 +77,6 @@ auto asDecimal (Char = char, alias padding = Char(' '), Value) (Value value)
 	enum uint[] maximumBase10DigitsBySizeOf = [0, 3, 5, 8, 10, 13, 15, 17, 20];
 	enum uint digitCount = maximumBase10DigitsBySizeOf[Value.sizeof];
 
-	static if (Value.sizeof <= 4)
-	{
-		enum Value reciprocal = cast(Value) 0xCCCCCCCCCCCCCCCD;
-		enum uint shift = ((Value.sizeof << 3) & 63) + 3;
-	}
-
 	Unqual!Char[digitCount] decimal = padding;
 	ulong theValue = value;
 	size_t index = decimal.length;
@@ -91,15 +85,7 @@ auto asDecimal (Char = char, alias padding = Char(' '), Value) (Value value)
 	{
 		ulong previousValue = theValue;
 
-		static if (Value.sizeof <= 4)
-		{
-			theValue *= reciprocal;
-			theValue >>>= shift;
-		}
-		else
-		{
-			theValue /= 10;
-		}
+		theValue /= 10;
 
 		--index;
 		decimal[index] = cast(Char) ('0' + cast(uint) (previousValue - theValue * 10));
