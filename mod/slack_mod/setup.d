@@ -557,17 +557,18 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 		c = c.alignUpTo(16);
 		ubyte* skse64ProvisionHijack = c;
 
-		static if (targetedGameVersion >= 0x01_06_000_0)
-		{
-			enum ubyte shadowSpace = 40;
-		}
-		else
-		{
-			/+ It took me an hour to figure out that this was why
-			   `hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin` was failing on v1.5.97.
-			   I hate computers. +/
-			enum ubyte shadowSpace = 32;
-		}
+		/+
+			This worked only on my machine. God knows why.
+
+			static if (targetedGameVersion >= 0x01_06_000_0)
+			{
+				enum ubyte shadowSpace = 40;
+			}
+
+			I hate computers.
+		+/
+
+		enum ubyte shadowSpace = 32;
 
 		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = shadowSpace;                          /+ sub rsp, shadowSpace +/
 		c += c.writeCallOf(cast(const(ubyte)*) &hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin); /+ call hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin +/
