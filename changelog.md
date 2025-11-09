@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.1 (2025-11-09)
+
+The second release of this plugin, the changes are as follows:
+- Versions 2.2.3 and 2.2.3 (GOG) of SKSE are now supported, for users of version 1.6.640/1.6.659 of Skyrim SE.
+- A slightly different method of finding the SKSE DLL is now used.
+---
+
+The song recommendation for this release is ["Just Me and My Dog" by Club des Belugas, featuring vocals by Anna Luca](https://www.youtube.com/watch?v=agSoHWRpvxI).
+
 ## Version 1.0.0 (2025-11-08)
 
 The first release of this plugin, the features provided are as follows:
