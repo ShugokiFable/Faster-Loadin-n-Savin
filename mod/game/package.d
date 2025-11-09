@@ -8,10 +8,12 @@ public import game.target;
 
 enum GameArchetype : ubyte
 {
-	ae = 0,
-	se = 1,
-	vr = 2,
-	gog = 3,
+	ae,
+	ae640,
+	se,
+	vr,
+	gog,
+	gog659,
 }
 
 
