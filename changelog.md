@@ -1,6 +1,14 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.0.5 (2025-11-09)
+
+The sixth release of this plugin, the changes are as follows:
+- Support for version 2.1.5 of SKSE has been fixed, for users of version 1.6.353 of Skyrim SE.
+---
+
+The song recommendation for this release is ["雨は毛布のように" by KIRINJI](https://www.youtube.com/watch?v=HWyyxJoZHyY).
+
 ## Version 1.0.4 (2025-11-09)
 
 The fifth release of this plugin, the changes are as follows:
