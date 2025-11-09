@@ -40,14 +40,19 @@ enum size_t skipINISection = 1;
 
 
 pragma(inline, true)
-bool iniValueAsBoolean (Char) (scope const(Char)[] text)
+bool iniValueAsBoolean (Char) (scope const(Char)[] text, bool defaultValueWhenEmpty = false)
 {
 	if (text.length == 0)
 	{
-		return false;
+		return defaultValueWhenEmpty;
 	}
 
 	Char v = asciiLowerCase(text[0]);
+
+	if ((v >= '\t') & (v <= '\r'))
+	{
+		return defaultValueWhenEmpty;
+	}
 
 	return (v != 'f') & (v != 'n') & (v != '0');
 }
