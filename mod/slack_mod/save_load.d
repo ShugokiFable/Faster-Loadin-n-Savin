@@ -492,34 +492,13 @@ void performanceCriticalBlit (
 }
 
 
-bool cosavePathAsUTF16 (scope ref wchar[MAX_PATH] pathBuffer, scope const(wchar)* failureMessage) @trusted nothrow @nogc
+pragma(inline, true)
+HANDLE createCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 {
 	const(std_string)* cosavePath = global.addressOf.skseCosaveSavePath;
 
-	const(char)* utf8 = cosavePath.base;
-	const(char)* utf8End = cosavePath.asSlice.endOf;
-	wchar* utf16 = pathBuffer.ptr;
-	wchar* utf16End = utf16 + MAX_PATH - 1;
-	dchar pendingCodePoint = cast(dchar) -1;
-	utf8ToUTF16(&utf8, utf8End, &utf16, utf16End, &pendingCodePoint);
-
-	if (utf8 < utf8End)
-	{
-		reportErrorToUser(failureMessage);
-		return false;
-	}
-
-	*utf16 = '\0';
-
-	return true;
-}
-
-
-pragma(inline, true)
-HANDLE createCosaveFile (scope wchar[] pathBuffer) @trusted nothrow @nogc
-{
-	HANDLE cosaveFile = CreateFileW(
-		pathBuffer.ptr,
+	HANDLE cosaveFile = CreateFileA(
+		cosavePath.base,
 		GENERIC_READ | GENERIC_WRITE,
 		FILE_SHARE_READ,
 		null,
@@ -531,7 +510,7 @@ HANDLE createCosaveFile (scope wchar[] pathBuffer) @trusted nothrow @nogc
 	if (cosaveFile == INVALID_HANDLE_VALUE)
 	{
 		reportErrorToUser(
-			pathBuffer,
+			stringBuffer,
 			"The cosave file could not be created!\r\nTHE GAME IS NOT FULLY SAVED.",
 			hresultFromLastError(getLastError)
 		);
@@ -691,11 +670,6 @@ void saveCosaveSerial () nothrow @nogc
 
 	wchar[MAX_PATH] stringBuffer = void;
 
-	if (!cosavePathAsUTF16(stringBuffer, "The cosave file's path is too long!\r\nTHE GAME IS NOT FULLY SAVED."))
-	{
-		return;
-	}
-
 	HANDLE cosaveFile = createCosaveFile(stringBuffer);
 
 	if (cosaveFile == INVALID_HANDLE_VALUE)
@@ -765,11 +739,6 @@ void saveCosaveParallel () nothrow @nogc
 	RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &time[0]);
 
 	wchar[MAX_PATH] stringBuffer = void;
-
-	if (!cosavePathAsUTF16(stringBuffer, "The cosave file's path is too long!\r\nTHE GAME IS NOT FULLY SAVED."))
-	{
-		return;
-	}
 
 	HANDLE cosaveFile = createCosaveFile(stringBuffer);
 
@@ -1237,10 +1206,12 @@ bool growCosaveFileBufferThreadSafely (scope const(ubyte)* requiredCommit) @trus
 
 
 pragma(inline, true)
-HANDLE openCosaveFile (scope wchar[] pathBuffer) @trusted nothrow @nogc
+HANDLE openCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 {
-	HANDLE cosaveFile = CreateFileW(
-		pathBuffer.ptr,
+	const(std_string)* cosavePath = global.addressOf.skseCosaveSavePath;
+
+	HANDLE cosaveFile = CreateFileA(
+		cosavePath.base,
 		GENERIC_READ,
 		FILE_SHARE_READ,
 		null,
@@ -1252,7 +1223,7 @@ HANDLE openCosaveFile (scope wchar[] pathBuffer) @trusted nothrow @nogc
 	if (cosaveFile == INVALID_HANDLE_VALUE)
 	{
 		reportErrorToUser(
-			pathBuffer,
+			stringBuffer,
 			"The cosave file could not be opened!\r\nTHE GAME IS NOT FULLY LOADED.",
 			hresultFromLastError(getLastError)
 		);
@@ -1363,11 +1334,6 @@ void loadCosaveSerial () nothrow @nogc
 	scope(exit) NtSetInformationThread(thisThread, THREADINFOCLASS.ThreadPriority, &originalThreadPriority, originalThreadPriority.sizeof);
 
 	wchar[MAX_PATH] stringBuffer = void;
-
-	if (!cosavePathAsUTF16(stringBuffer, "The cosave file's path is too long!\r\nTHE GAME IS NOT FULLY LOADED."))
-	{
-		return;
-	}
 
 	HANDLE cosaveFile = openCosaveFile(stringBuffer);
 
@@ -1565,11 +1531,6 @@ version (SLACKVerificationMode)
 		*(cosavePath.base + cosavePath.size - 1) = 'l';
 
 		wchar[MAX_PATH] stringBuffer = void;
-
-		if (!cosavePathAsUTF16(stringBuffer, ""))
-		{
-			return;
-		}
 
 		HANDLE verificationLog = createCosaveFile(stringBuffer);
 
