@@ -8,7 +8,7 @@ import slack_common.memory;
 import slack_common.text;
 
 
-enum immutable(wchar[]) errorDialogTitle = "Save & Load Accelerator for SKSE Cosaves v1.0.5 Error";
+enum immutable(wchar[]) errorDialogTitle = "Save & Load Accelerator for SKSE Cosaves v1.0.6 Error";
 
 
 void reportErrorToUser (scope const(wchar)* message, uint flags = MB_ICONERROR) nothrow @nogc
