@@ -464,6 +464,13 @@ version (Windows)
 		}
 
 		pragma(inline, true)
+		static inout(NTString) fromString (return scope inout(Char)[] slice) @trusted pure nothrow @nogc
+		in (slice.length <= (ushort.max >>> scale))
+		{
+			return typeof(return)(cast(ushort) (slice.length << scale), cast(ushort) (slice.length << scale), slice.ptr);
+		}
+
+		pragma(inline, true)
 		static inout(NTString) from (return scope inout(Char)[] slice) @trusted pure nothrow @nogc
 		in (slice.length <= (ushort.max >>> scale))
 		{
