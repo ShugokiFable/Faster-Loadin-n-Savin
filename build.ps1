@@ -25,7 +25,7 @@ Param
 			$DVersions = @()
 )
 
-. "$PSScriptRoot/common.ps1"
+. "$PSScriptRoot/scripts/common.ps1"
 
 $Source = "$PSScriptRoot/mod"
 $BuildPath = "$PSScriptRoot/build/$Configuration"
