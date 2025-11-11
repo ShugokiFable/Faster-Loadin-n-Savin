@@ -88,6 +88,7 @@ try
 		'slack_common/tib_access.d'
 		'slack_common/peb_access.d'
 		'slack_common/file_handling.d'
+		'slack_common/dynamic_linking.d'
 		'slack_common/pe.d'
 		'slack_common/user_interface.d'
 		'slack_common/patching.d'
@@ -98,6 +99,7 @@ try
 		'slack_mod/save_load.d'
 		'slack_mod/setup.d'
 		'slack_mod/global.d'
+		'slack_common/dynamically_linked.d'
 	).ForEach{"$SourceBase/$_"}
 
 	$ImportedLibraries = @(

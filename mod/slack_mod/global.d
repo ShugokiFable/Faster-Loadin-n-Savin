@@ -8,6 +8,7 @@ import game;
 import slack_common.algorithms;
 import slack_common.bindings;
 import slack_common.cpp;
+import slack_common.dynamic_linking;
 import slack_common.text;
 import slack_common.user_interface;
 import slack_mod.configuration;
@@ -27,6 +28,7 @@ enum bool hookingSKSEInitialiseViaCall = targetedGameArchetype != GameArchetype.
 
 struct GlobalState
 {
+	DynamicallyLinked linked;
 	HMODULE dllModule;
 	ulong performanceFrequency;
 	double performanceFrequencyMillisecondMultiplier = 0;
@@ -78,6 +80,11 @@ struct ResolvedAddresses
 		typeof(SerialisationProvider.readNextRecordHeader) readNextRecordHeader;
 		typeof(SerialisationProvider.readRecordData) readRecordData;
 	}
+}
+
+
+struct DynamicallyLinked
+{
 }
 
 
