@@ -1,6 +1,22 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.1.0 (2025-11-11)
+
+Something about that date rings a bell, doesn't it?
+
+The ninth release of this plugin, the changes are as follows:
+- The plugin is now packaged as a FOMOD, with automatic game-version detection. (Individual zip-archives are still available on GitHub.)
+- A fix for blank error-message dialogs on version 1.5.97 of Skyrim SE.
+- A more robust stratagem for allocating memory closely to the SKSE DLL.
+- Version detection for ten outdated versions of SKSE has been implemented.
+- The requirement for Windows 10, version 1803 has been dropped—the plugin can run on Window Vista now. (Parallel-saving still requires Windows 8 or newer.)
+- A very small oversight that could cause the save-timing logging to not log was corrected.
+- Version 2.2.5 of SKSE is now supported, for users of version 1.6.1130 of Skyrim SE.
+---
+
+The song recommendation for this release is ["Present" by TOMOO](https://www.youtube.com/watch?v=EvpsZde4QSI).
+
 ## Version 1.0.7 (2025-11-09)
 
 The eighth release of this plugin, the changes are as follows:
