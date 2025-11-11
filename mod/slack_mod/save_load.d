@@ -646,7 +646,6 @@ bool writeCosaveToFile (
 			global.haveWarnedUserAboutNearlyReachingSaveFileSizeLimit = true;
 			static assert(maximumFileSize == 524_284.KB);
 			reportErrorToUser("The cosave is very close to exceeding the maximum size of 524,284 KB!\r\nTo avoid a loss of progress, you may want to disable S.L.A.C.K., and then alert the author of S.L.A.C.K. so that the limit can be raised.", MB_ICONWARNING);
-			return false;
 		}
 	}
 
