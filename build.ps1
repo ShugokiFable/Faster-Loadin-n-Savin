@@ -77,6 +77,7 @@ try
 		'slack_common/versions.d'
 		'slack_common/bindings.d'
 		'slack_common/integers.d'
+		'slack_common/sorting.d'
 		'slack_common/memory.d'
 		'slack_common/simd.d'
 		'slack_common/timing.d'
