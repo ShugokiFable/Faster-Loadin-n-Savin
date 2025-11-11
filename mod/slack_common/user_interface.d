@@ -3,6 +3,8 @@
 
 module slack_common.user_interface;
 
+import game;
+
 import slack_common.bindings;
 import slack_common.memory;
 import slack_common.text;
@@ -11,14 +13,90 @@ import slack_common.text;
 enum immutable(wchar[]) errorDialogTitle = "Save & Load Accelerator for SKSE Cosaves v1.0.7 Error";
 
 
-void reportErrorToUser (scope const(wchar)* message, uint flags = MB_ICONERROR) nothrow @nogc
+/+ The implementation for Skyrim v1.5.97 breaks message-boxes in other versions of Skyrim.
+   https://www.youtube.com/watch?v=FL0PvTmo5CE&t=7s +/
+static if (targetedGameArchetype != GameArchetype.se)
 {
-	MessageBoxW(
-		null,
-		message,
-		errorDialogTitle.ptr,
-		MB_OK | MB_TOPMOST | flags
-	);
+	uint showMessageBox (scope const(wchar)* message, scope const(wchar)* title, uint flags = 0) nothrow @nogc
+	{
+		return MessageBoxW(
+			null,
+			message,
+			title,
+			MB_OK | MB_TOPMOST | flags
+		);
+	}
+
+
+	void reportErrorToUser (scope const(wchar)* message, uint flags = MB_ICONERROR) nothrow @nogc
+	{
+		MessageBoxW(
+			null,
+			message,
+			errorDialogTitle.ptr,
+			MB_OK | MB_TOPMOST | flags
+		);
+	}
+}
+else
+{
+	import slack_common.threading;
+
+
+	uint showMessageBox (scope const(wchar)* message, scope const(wchar)* title, uint flags = 0) nothrow @nogc
+	{
+		/+ In v1.5.97 of Skyrim, the body of the message-box is sometimes blank when MessageBoxW
+		   is called from the main-thread, hence why we spin up a new thread. +/
+
+		static struct Context
+		{
+			const(wchar)* message;
+			const(wchar)* title;
+
+			union
+			{
+				uint flags;
+				uint result;
+			}
+		}
+
+		extern(Windows)
+		static uint showMessage (scope void* context)
+		{
+			(cast(Context*) context).result = MessageBoxW(
+				null,
+				(cast(const(Context*)) context).message,
+				(cast(const(Context*)) context).title,
+				(cast(const(Context*)) context).flags
+			);
+
+			return 0;
+		}
+
+		Context context = {
+			message: message,
+			title: title,
+			flags: flags | MB_TOPMOST | MB_SETFOREGROUND | MB_DEFAULT_DESKTOP_ONLY
+		};
+
+		HANDLE thread = void;
+		NTSTATUS error = makeThread(&thread, &showMessage, &context, THREAD_CREATE_FLAGS_SKIP_THREAD_ATTACH);
+
+		if (!error)
+		{
+			NtWaitForSingleObject(thread, false, null);
+			NtClose(thread);
+			return context.result;
+		}
+
+		return 0;
+	}
+
+
+	void reportErrorToUser (scope const(wchar)* message, uint flags = MB_ICONERROR) nothrow @nogc
+	{
+		showMessageBox(message, errorDialogTitle.ptr, flags);
+	}
 }
 
 

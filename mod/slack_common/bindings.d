@@ -116,6 +116,9 @@ version (Windows)
 	extern(Windows) void RtlWakeAddressSingle (scope const(void)* Address) @safe nothrow @nogc;
 
 
+	extern(Windows) NTSTATUS NtWaitForSingleObject (HANDLE Handle, BOOLEAN Alertable, scope LARGE_INTEGER* Timeout) @trusted nothrow @nogc;
+
+
 	extern(Windows) NTSTATUS NtCreateThreadEx (scope HANDLE* ThreadHandle, ACCESS_MASK DesiredAccess, scope const(OBJECT_ATTRIBUTES)* ObjectAttributes, HANDLE ProcessHandle, PUSER_THREAD_START_ROUTINE StartRoutine, void* Argument, uint CreateFlags, size_t ZeroBits, size_t StackSize, size_t MaximumStackSize, scope PS_ATTRIBUTE_LIST!()* AttributeList) @system nothrow @nogc;
 
 
