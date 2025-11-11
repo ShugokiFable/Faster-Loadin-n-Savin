@@ -111,11 +111,6 @@ version (Windows)
 	extern(Windows) NTSTATUS NtDelayExecution (BOOLEAN Alertable, scope LARGE_INTEGER* Interval) @trusted nothrow @nogc;
 
 
-	extern(Windows) NTSTATUS RtlWaitOnAddress (scope const(void)* Address, scope const(void)* CompareAddress, size_t AddressSize, scope const(LARGE_INTEGER)* Timeout) @system nothrow @nogc;
-	extern(Windows) void RtlWakeAddressAll (scope const(void)* Address) @safe nothrow @nogc;
-	extern(Windows) void RtlWakeAddressSingle (scope const(void)* Address) @safe nothrow @nogc;
-
-
 	extern(Windows) NTSTATUS NtWaitForSingleObject (HANDLE Handle, BOOLEAN Alertable, scope LARGE_INTEGER* Timeout) @trusted nothrow @nogc;
 
 
@@ -154,6 +149,11 @@ version (Windows)
 
 
 		alias NtAllocateVirtualMemoryEx = NTSTATUS function (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, uint AllocationType, uint PageProtection, scope MEM_EXTENDED_PARAMETER* ExtendedParameters, uint ExtendedParameterCount) nothrow @nogc;
+
+
+		alias RtlWaitOnAddress = extern(Windows) NTSTATUS function (scope const(void)* Address, scope const(void)* CompareAddress, size_t AddressSize, scope const(LARGE_INTEGER)* Timeout) @system nothrow @nogc;
+		alias RtlWakeAddressAll = extern(Windows) void function (scope const(void)* Address) @safe nothrow @nogc;
+		alias RtlWakeAddressSingle = extern(Windows) void function (scope const(void)* Address) @safe nothrow @nogc;
 	}
 
 

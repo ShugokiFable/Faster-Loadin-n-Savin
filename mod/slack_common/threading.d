@@ -7,6 +7,7 @@ import core.atomic : atomicFetchAdd, atomicLoad, atomicStore, MemoryOrder;
 
 import slack_common.bindings;
 import slack_common.byte_sizes;
+import slack_common.dynamically_linked;
 import slack_common.integers;
 import slack_common.timing;
 
@@ -65,7 +66,7 @@ if (T.sizeof.isPowerOfTwo && T.alignof >= T.sizeof && is(Unqual!T == Unqual!U))
 
 	static assert(T.sizeof <= 8);
 
-	return RtlWaitOnAddress(
+	return linked.RtlWaitOnAddress(
 		cast(const(void)*) address,
 		cast(const(void)*) &expecting,
 		T.sizeof,
@@ -75,24 +76,24 @@ if (T.sizeof.isPowerOfTwo && T.alignof >= T.sizeof && is(Unqual!T == Unqual!U))
 
 
 pragma(inline, true)
-auto wakeOneThreadVia (T) (scope T* address)
+auto wakeOneThreadVia (T) (scope T* address) @trusted
 if (T.sizeof.isPowerOfTwo && T.alignof >= T.sizeof)
 {
 	static assert(T.sizeof <= 8);
 
-	RtlWakeAddressSingle(cast(const(void)*) address);
+	linked.RtlWakeAddressSingle(cast(const(void)*) address);
 
 	return true;
 }
 
 
 pragma(inline, true)
-auto wakeAllThreadsVia (T) (scope T* address)
+auto wakeAllThreadsVia (T) (scope T* address) @trusted
 if (T.sizeof.isPowerOfTwo && T.alignof >= T.sizeof)
 {
 	static assert(T.sizeof <= 8);
 
-	RtlWakeAddressAll(cast(const(void)*) address);
+	linked.RtlWakeAddressAll(cast(const(void)*) address);
 
 	return true;
 }

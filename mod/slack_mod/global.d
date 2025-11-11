@@ -93,6 +93,10 @@ struct DynamicallyLinked
 
 	@"ntdll" .NtAllocateVirtualMemoryEx NtAllocateVirtualMemoryEx;
 
+	@"ntdll" .RtlWaitOnAddress RtlWaitOnAddress;
+	@"ntdll" .RtlWakeAddressAll RtlWakeAddressAll;
+	@"ntdll" .RtlWakeAddressSingle RtlWakeAddressSingle;
+
 	void linkAll () () scope
 	{
 		enum size_t count = this.tupleof.length;
