@@ -2,6 +2,10 @@
 
 This plugin aims to make heavily-modded games save and load more quickly.
 
+The SKSE cosave is a sidecar file that is saved beside the game's actual save file.
+This plugin accelerates the saving/loading of only the SKSE cosave: it does nothing for the actual save file.
+Hence the acceleration of loading is less dramatic than the acceleration of saving.
+
 [size=4][b][u]Preamble[/u][/b][/size]
 SKSE is a fantastic bit of kit: almost every non-trivial Skyrim mod owes its very existence to it.
 In fact, the same is true for almost every game of Bethesda Game Studios from Oblivion onwards.
@@ -28,16 +32,16 @@ Saves made with this plugin installed can be loaded without this plugin installe
 
 [size=4][b][u]Requirements[/u][/b][/size]
 [list]
-[*] Windows 10, version 1803 or later.
 [*] A DLL preloader: either the [url=https://www.nexusmods.com/skyrimspecialedition/mods/17230]"SSE Engine Fixes - SKSE64 Preloader"[/url], or the [url=https://www.nexusmods.com/skyrimspecialedition/mods/10546]"DLL Plugin Loader"[/url] will do.
 [*] [url=https://skse.silverlock.org/]SKSE[/url] (duh).
 [/list]
 [size=4][b][u]Installation[/u][/b][/size]
 After ensuring that a DLL preloader is installed, this plugin can be installed like any other via your mod-manager of choice.
 
-Please be mindful that you download the correct version for your version of SKSE and Skyrim.
+The plugin will be installed correctly by default by all good mod-managers.
+When installed correctly, the path of the DLL relative to the game's folder will be "Data\DLLPlugins\Save&LoadAcceleratorForSKSECosaves.dll".
 
-Also, please note that only the version for the Anniversary Edition has been tested by me, all other version are untested (but should work).
+Also, please note that only the versions for Skyrim AE v1.6.1170 and Skyrim SE v1.5.97 have been tested by me, all other version are untested (but should work).
 
 [size=4][b][u]Usage[/u][/b][/size]
 This plugin is active by default when it is installed.
@@ -47,6 +51,13 @@ By default, the time taken to save or load a game will be logged to the in-game 
 The "Save&LoadAcceleratorForSKSECosaves.ini" file next to the "Save&LoadAcceleratorForSKSECosaves.dll" file can be edited to configure this plugin.
 
 If you would like to eke out even more speed for saving the game, the experimental parallel-saving feature can be enabled via the "Save&LoadAcceleratorForSKSECosaves.ini" file.
+
+[size=4][b][u]Compatibility[/u][/b][/size]
+
+This plugin should be compatible with just about everything, with the exception of other plugins that patch or hook SKSE's code, potentially.
+In practice, patching and hooking SKSE itself is very rare.
+
+To answer a frequent question: this plugin is compatible with [url=https://www.nexusmods.com/skyrimspecialedition/mods/122343]Skyrim Save System Overhaul (SSSO)[/url].
 
 [size=4][b][u]What this plugin does[/u][/b][/size]
 This plugin makes heavily-modded games save and load more quickly.
@@ -102,6 +113,9 @@ So what this plugin does to remedy this pretty state of things is it reimplement
 For loading, the situation is better: typically each call to [i]GetNextRecordInfo[/i] and [i]ReadRecordData[/i] results in only one transitive call of [i]ReadFile[/i].
 The optimisation this plugin makes is similarly obvious: the file is read into memory all at once, and the API functions simply blit the data into the buffer supplied by the caller.
 [/spoiler]
+
+[size=4][b][u]Source-Code[/u][/b][/size]
+The source-code for this plugin is available at [url=https://github.com/just-harry/save-load-accelerator-for-skse-cosaves]https://github.com/just-harry/save-load-accelerator-for-skse-cosaves[/url].
 
 [size=4][b][u]Honourable Mentions[/u][/b][/size]
 On 2024-10-04 (over a year ago), GitHub user "intorr" submitted a [url=https://github.com/ianpatt/skse64/pull/44]pull-request to the SKSE project[/url] which speeds up the saving and loading of SKSE cosaves, via a delightfully simple implementation of a buffered file-stream.
