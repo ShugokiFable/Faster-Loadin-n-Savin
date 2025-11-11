@@ -91,6 +91,8 @@ struct DynamicallyLinked
 		@"ntdll" .LdrUnregisterDllNotification LdrUnregisterDllNotification;
 	}
 
+	@"ntdll" .NtAllocateVirtualMemoryEx NtAllocateVirtualMemoryEx;
+
 	void linkAll () () scope
 	{
 		enum size_t count = this.tupleof.length;
@@ -103,6 +105,12 @@ struct DynamicallyLinked
 			}
 
 			dynamicallyLinkInto(mixin(__traits(getAttributes, this.tupleof[index])[0]), __traits(identifier, this.tupleof[index]), &this.tupleof[index]);
+		}
+
+		debug
+		{
+			/+ Just to make sure the non-NtAllocateVirtualMemoryEx code-paths receive testing. +/
+			this.NtAllocateVirtualMemoryEx = null;
 		}
 	}
 }

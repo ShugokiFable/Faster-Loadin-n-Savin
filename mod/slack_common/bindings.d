@@ -59,10 +59,10 @@ version (Windows)
 
 
 	extern(Windows) NTSTATUS NtAllocateVirtualMemory (scope HANDLE ProcessHandle, scope void** BaseAddress, size_t ZeroBits, scope size_t* RegionSize, uint AllocationType, uint Protect) nothrow @nogc;
-	extern(Windows) NTSTATUS NtAllocateVirtualMemoryEx (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, uint AllocationType, uint PageProtection, scope MEM_EXTENDED_PARAMETER* ExtendedParameters, uint ExtendedParameterCount) nothrow @nogc;
 	extern(Windows) NTSTATUS NtFreeVirtualMemory (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, uint FreeType) nothrow @nogc;
 	extern(Windows) NTSTATUS NtProtectVirtualMemory (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, uint NewProtection, scope uint* OldProtection) nothrow @nogc;
 	extern(Windows) NTSTATUS NtFlushVirtualMemory (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, scope IO_STATUS_BLOCK* IoStatusBlock) nothrow @nogc;
+	extern(Windows) NTSTATUS NtQueryVirtualMemory (scope HANDLE ProcessHandle, scope void* BaseAddress, MEMORY_INFORMATION_CLASS MemoryInformationClass, scope void* MemoryInformation, size_t MemoryInformationLength, scope size_t* ReturnLength) nothrow @nogc;
 
 
 	extern(Windows) BOOL FlushInstructionCache (scope HANDLE hProcess, scope const(void)* lpBaseAddress, size_t dwSize) @trusted nothrow @nogc;
@@ -151,6 +151,9 @@ version (Windows)
 	{
 		alias LdrRegisterDllNotification = NTSTATUS function (uint Flags, PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction, void* Context, scope void** Cookie) nothrow @nogc;
 		alias LdrUnregisterDllNotification = NTSTATUS function (scope void* Cookie) nothrow @nogc;
+
+
+		alias NtAllocateVirtualMemoryEx = NTSTATUS function (scope HANDLE ProcessHandle, scope void** BaseAddress, scope size_t* RegionSize, uint AllocationType, uint PageProtection, scope MEM_EXTENDED_PARAMETER* ExtendedParameters, uint ExtendedParameterCount) nothrow @nogc;
 	}
 
 
@@ -167,6 +170,7 @@ version (Windows)
 	enum NTSTATUS STATUS_BUFFER_OVERFLOW = 0x80000005;
 	enum NTSTATUS STATUS_NO_MORE_FILES = 0x80000006;
 	enum NTSTATUS STATUS_NO_SUCH_FILE = 0xC000000F;
+	enum NTSTATUS STATUS_NO_MEMORY = 0xC0000017;
 	enum NTSTATUS STATUS_DLL_NOT_FOUND = 0xC0000135;
 
 
@@ -377,6 +381,30 @@ version (Windows)
 
 
 	enum ushort ALL_PROCESSOR_GROUPS = 0xFFFF;
+
+
+	enum MEMORY_INFORMATION_CLASS
+	{
+		MemoryBasicInformation
+	}
+
+
+	struct MEMORY_BASIC_INFORMATION
+	{
+		void* BaseAddress;
+		void* AllocationBase;
+		uint AllocationProtect;
+
+		static if (size_t.sizeof > 4)
+		{
+			ushort PartitionId;
+		}
+
+		size_t RegionSize;
+		uint State;
+		uint Protect;
+		uint Type;
+	}
 
 
 	enum uint MEM_EXTENDED_PARAMETER_TYPE_BITS = 8;
@@ -726,6 +754,7 @@ version (Windows)
 	enum uint MEM_RESET_UNDO = 0x1000000;
 	enum uint MEM_DECOMMIT = 0x00004000;
 	enum uint MEM_RELEASE = 0x00008000;
+	enum uint MEM_FREE = 0x00010000;
 	enum uint MEM_REPLACE_PLACEHOLDER = 0x00004000;
 	enum uint MEM_RESERVE_PLACEHOLDER = 0x00040000;
 	enum uint MEM_COALESCE_PLACEHOLDERS = 0x00000001;

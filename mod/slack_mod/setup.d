@@ -19,6 +19,7 @@ import slack_common.memory;
 import slack_common.patching;
 import slack_common.pe;
 import slack_common.peb_access;
+import slack_common.sorting;
 import slack_common.text;
 import slack_common.threading;
 import slack_common.tib_access;
@@ -251,44 +252,80 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 		return false;
 	}
 
-	MEM_ADDRESS_REQUIREMENTS _32BitAddressRange = {
-		LowestStartingAddress: sections.lastInMemory.endOf.alignUpTo(allocationGranularity) - 2.GB,
-		HighestEndingAddress: sections.firstInMemory.ptr.alignDownTo(allocationGranularity) + 2.GB - 1
-	};
-	MEM_EXTENDED_PARAMETER requirement = {
-		Type: MEM_EXTENDED_PARAMETER_TYPE.MemExtendedParameterAddressRequirements,
-		Pointer: &_32BitAddressRange
-	};
+	PESections sortedSections = sections;
+	sortingNetwork!((a, b) => a.ptr > b.ptr)(sortedSections);
 
-	void* skseAdjacentMemory = null;
-	size_t size = 64.KB;
-	if ((error = NtAllocateVirtualMemoryEx(thisProcess, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &requirement, 1)) != 0)
+	void* skseAdjacentMemory = void;
+	size_t size = void;
+	const(void)* base = void;
+	const(void)* tail = void;
+
+	/+ Can we allocate memory between SKSE's sections? +/
+	foreach (size_t index; 0 .. 1)
 	{
-		errorMessage = "Memory could not be allocated sufficiently close to the SKSE64 DLL.";
-	reportErrorOnFailure:
-		reportErrorToUser(stringBuffer, errorMessage, error);
-		return false;
+		base = sortedSections[index].endOf;
+		tail = sortedSections[index + 1].ptr;
+		size_t betweenSize = tail - base;
+
+		if (betweenSize >= 64.KB)
+		{
+			skseAdjacentMemory = null;
+			size = 64.KB;
+			if ((error = allocateVirtualMemoryWithinRange(base, tail, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)) == 0)
+			{
+				goto allocatedSKSEskseAdjacentMemory;
+			}
+		}
+	}
+
+	/+ What about after the sections? +/
+	base = sortedSections[$ - 1].endOf;
+	tail = sortedSections[0].ptr + 2.GB;
+	skseAdjacentMemory = null;
+	size = 64.KB;
+	if ((error = allocateVirtualMemoryWithinRange(base, tail, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)) == 0)
+	{
+		goto allocatedSKSEskseAdjacentMemory;
+	}
+
+	/+ Before? +/
+	base = sortedSections[$ - 1].endOf - 2.GB;
+	tail = sortedSections[0].ptr;
+	skseAdjacentMemory = null;
+	size = 64.KB;
+	if ((error = allocateVirtualMemoryWithinRange(base, tail, &skseAdjacentMemory, &size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)) == 0)
+	{
+		goto allocatedSKSEskseAdjacentMemory;
+	}
+
+	errorMessage = "Memory could not be allocated sufficiently close to the SKSE64 DLL.";
+reportErrorOnFailure:
+	reportErrorToUser(stringBuffer, errorMessage, error);
+	return false;
+allocatedSKSEskseAdjacentMemory:
+	debug
+	{
+		wchar* s = stringBuffer.ptr;
+		blit(s, "SKSE DLL: 0x"w.ptr, 12); s += 12;
+		(cast(size_t) skseDLL).asHexInto(s[0 .. 16]); s += 16;
+		blit(s, "\r\n..Memory: 0x"w.ptr, 14); s += 14;
+		(cast(size_t) skseAdjacentMemory).asHexInto(s[0 .. 16]); s += 16;
+		*s++ = '\0';
+		showMessageBox(stringBuffer.ptr, "SKSE Adjacent Memory");
 	}
 
 	/+ To increase the likelihood of other mods patching SKSE being able
 	   to allocate within a 32-bit range of SKSE, we specifically avoid allocating
 	   within that range from hereon. +/
 
-	MEM_ADDRESS_REQUIREMENTS beforeSKSEAddressRange = {
-		LowestStartingAddress: null,
-		HighestEndingAddress: _32BitAddressRange.LowestStartingAddress - 1
-	};
+	const(void)* beforeSKSEBase = cast(const(void)*) allocationGranularity;
+	const(void)* beforeSKSETail = cast(const(void)*) skseDLL - 8.GB;
+	const(void)* afterSKSEBase = cast(const(void)*) skseDLL + 8.GB;
+	const(void)* afterSKSETail = cast(const(void)*) size_t.max - allocationGranularity + 1;
 
-	MEM_ADDRESS_REQUIREMENTS afterSKSEAddressRange = {
-		LowestStartingAddress: _32BitAddressRange.HighestEndingAddress + 1,
-		HighestEndingAddress: null
-	};
-
-	requirement.Pointer = &beforeSKSEAddressRange;
-	if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
+	if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, afterSKSEBase, afterSKSETail)) != 0)
 	{
-		requirement.Pointer = &afterSKSEAddressRange;
-		if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, (&requirement)[0 .. 1])) != 0)
+		if ((error = makeLargeAndLowOverheadSequentialBuffer(&global.saveLoad.cosaveFileBuffer, maximumCosaveFileSize, 1.MB, beforeSKSEBase, beforeSKSETail)) != 0)
 		{
 			errorMessage = "Memory could not be allocated for the cosave file buffer.";
 		errorWithSKSEAdjacentMemory:
@@ -316,11 +353,9 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 		global.saveLoad.parallel.threadCount = parallelThreadCount;
 
-		requirement.Pointer = &beforeSKSEAddressRange;
-		if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
+		if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, afterSKSEBase, afterSKSETail)) != 0)
 		{
-			requirement.Pointer = &afterSKSEAddressRange;
-			if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, (&requirement)[0 .. 1])) != 0)
+			if ((error = makeLargeAndLowOverheadPartitionedBuffer(&global.saveLoad.parallel.cosaveBuffer, maximumCosaveFileSize.integralLog2, parallelThreadCount, beforeSKSEBase, beforeSKSETail)) != 0)
 			{
 				errorMessage = "Memory could not be allocated for the parallel cosave buffer.";
 			errorWithCosaveFileBuffer:

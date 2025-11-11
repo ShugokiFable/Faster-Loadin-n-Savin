@@ -3,7 +3,10 @@
 
 module slack_common.memory;
 
+import slack_common.bindings;
 import slack_common.byte_sizes;
+import slack_common.dynamically_linked;
+import slack_common.integers;
 import slack_common.versions;
 
 
@@ -88,6 +91,109 @@ in (size_t(I.max) / size_t.sizeof >= 1)
 in (size_t(I.max) - pointerCount * I(size_t.sizeof) >= byteCount)
 {
 	return pointerCount * I(size_t.sizeof) + byteCount;
+}
+
+
+pragma(inline, true)
+uint allocateVirtualMemoryWithinRange (
+	scope const(void)* base,
+	scope const(void)* tail,
+	void** address,
+	size_t* size,
+	uint type,
+	uint protection
+) nothrow @nogc
+{
+	return allocateVirtualMemoryWithinRange(tail, address, size, type, protection, base);
+}
+
+
+private uint allocateVirtualMemoryWithinRange (
+	scope const(void)* tail,
+	void** address,
+	size_t* size,
+	uint type,
+	uint protection,
+	scope const(void)* base,
+) nothrow @nogc
+in (*address == null)
+{
+	/+ The wacky argument order is such to make the arguments line up
+	   for NtAllocateVirtualMemoryEx, where they can. +/
+
+	NTSTATUS error = 0;
+
+	size_t desiredSize = *size;
+
+	base = base.alignUpTo(allocationGranularity);
+	tail = (tail - desiredSize).alignDownTo(allocationGranularity);
+
+	if (base >= tail)
+	{
+		return STATUS_NO_MEMORY;
+	}
+
+	if (linked.NtAllocateVirtualMemoryEx)
+	{
+		MEM_ADDRESS_REQUIREMENTS range = {
+			LowestStartingAddress: cast(void*) base,
+			HighestEndingAddress: cast(void*) tail - 1
+		};
+		MEM_EXTENDED_PARAMETER requirement = {
+			Type: MEM_EXTENDED_PARAMETER_TYPE.MemExtendedParameterAddressRequirements,
+			Pointer: &range
+		};
+
+		error = linked.NtAllocateVirtualMemoryEx(thisProcess, address, size, type, protection, &requirement, 1);
+
+		if (!error)
+		{
+			return 0;
+		}
+	}
+
+	for (;;)
+	{
+		MEMORY_BASIC_INFORMATION info = void;
+
+		error = NtQueryVirtualMemory(
+			thisProcess,
+			cast(void*) base,
+			MEMORY_INFORMATION_CLASS.MemoryBasicInformation,
+			&info,
+			info.sizeof,
+			null
+		);
+
+		if (error)
+		{
+			return error;
+		}
+
+		if (base + desiredSize > tail)
+		{
+			return STATUS_NO_MEMORY;
+		}
+
+		if ((info.RegionSize >= desiredSize) & (info.State == MEM_FREE))
+		{
+			*address = info.BaseAddress;
+			*size = desiredSize;
+			error = NtAllocateVirtualMemory(thisProcess, address, 0, size, type, protection);
+
+			if (error == 0)
+			{
+				return 0;
+			}
+		}
+
+		base = info.BaseAddress + info.RegionSize;
+
+		if (base > tail)
+		{
+			return STATUS_NO_MEMORY;
+		}
+	}
 }
 
 

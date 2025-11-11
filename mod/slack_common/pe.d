@@ -8,11 +8,19 @@ import slack_common.bindings;
 
 struct PESections
 {
-	ubyte[] text;
-	ubyte[] data;
-	ubyte[] rdata;
-	ubyte[] firstInMemory;
-	ubyte[] lastInMemory;
+	alias sections this;
+
+	union
+	{
+		ubyte[][3] sections;
+
+		struct
+		{
+			ubyte[] text;
+			ubyte[] data;
+			ubyte[] rdata;
+		}
+	}
 }
 
 
@@ -33,23 +41,8 @@ size_t findSectionsOfPE64 (scope void* image, scope PESections* sections) @trust
 
 	size_t missing = 0b111;
 
-	uint firstInMemory = uint.max;
-	uint lastInMemory = 0;
-
 	for (; section < sectionTableEnd; ++section)
 	{
-		if (section.VirtualAddress <= firstInMemory)
-		{
-			firstInMemory = section.VirtualAddress;
-			sections.firstInMemory = mixin(slice);
-		}
-
-		if (section.VirtualAddress >= lastInMemory)
-		{
-			lastInMemory = section.VirtualAddress;
-			sections.lastInMemory = mixin(slice);
-		}
-
 		if (section.Name == ".text\0\0\0")
 		{
 			missing &= ~(1 << 0);

@@ -4,6 +4,7 @@
 module slack_common.large_low_overhead_buffer;
 
 import slack_common.bindings;
+import slack_common.dynamically_linked;
 import slack_common.memory;
 
 
@@ -63,25 +64,24 @@ NTSTATUS makeLargeAndLowOverheadSequentialBuffer (
 	scope LargeAndLowOverheadSequentialBuffer* buffer,
 	size_t reservation,
 	size_t commit,
-	scope MEM_EXTENDED_PARAMETER[] extendedParameters
+	scope const(void)* base,
+	scope const(void)* tail
 ) @trusted nothrow @nogc
 in (reservation >= minimumPageSize)
 in (commit <= reservation)
 in (commit <= reservation - minimumPageSize)
-in (extendedParameters.length < uint.max)
 {
 	buffer.base = null;
 
 	size_t size = reservation;
 
-	NTSTATUS error = NtAllocateVirtualMemoryEx(
-		thisProcess,
+	NTSTATUS error = allocateVirtualMemoryWithinRange(
+		base,
+		tail,
 		cast(void**) &buffer.base,
 		&size,
 		MEM_RESERVE,
-		PAGE_READWRITE,
-		extendedParameters.ptr,
-		cast(uint) extendedParameters.length
+		PAGE_READWRITE
 	);
 
 	if (error)
@@ -168,25 +168,24 @@ NTSTATUS makeLargeAndLowOverheadPartitionedBuffer (
 	scope LargeAndLowOverheadPartitionedBuffer* buffer,
 	uint partitionBixponent,
 	size_t partitionCount,
-	scope MEM_EXTENDED_PARAMETER[] extendedParameters
+	scope const(void)* base,
+	scope const(void)* tail
 ) @trusted nothrow @nogc
 in (partitionBixponent >= 12)
 in (partitionCount <= size_t.max >>> partitionBixponent)
-in (extendedParameters.length < uint.max)
 {
 	buffer.partitionBixponent = partitionBixponent;
 	buffer.base = null;
 
 	size_t size = partitionCount << partitionBixponent;
 
-	NTSTATUS error = NtAllocateVirtualMemoryEx(
-		thisProcess,
+	NTSTATUS error = allocateVirtualMemoryWithinRange(
+		base,
+		tail,
 		cast(void**) &buffer.base,
 		&size,
 		MEM_RESERVE,
-		PAGE_READWRITE,
-		extendedParameters.ptr,
-		cast(uint) extendedParameters.length
+		PAGE_READWRITE
 	);
 
 	if (error)
