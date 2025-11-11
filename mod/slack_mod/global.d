@@ -85,6 +85,26 @@ struct ResolvedAddresses
 
 struct DynamicallyLinked
 {
+	static if (shouldUseDLLNotifications)
+	{
+		@"ntdll" .LdrRegisterDllNotification LdrRegisterDllNotification;
+		@"ntdll" .LdrUnregisterDllNotification LdrUnregisterDllNotification;
+	}
+
+	void linkAll () () scope
+	{
+		enum size_t count = this.tupleof.length;
+
+		static foreach (index; 0 .. count)
+		{
+			static if (!is(typeof(mixin(__traits(getAttributes, this.tupleof[index])[0]))))
+			{
+				mixin("HMODULE ", __traits(getAttributes, this.tupleof[index])[0], ` = GetModuleHandleW("`, __traits(getAttributes, this.tupleof[index])[0], `.dll");`);
+			}
+
+			dynamicallyLinkInto(mixin(__traits(getAttributes, this.tupleof[index])[0]), __traits(identifier, this.tupleof[index]), &this.tupleof[index]);
+		}
+	}
 }
 
 
@@ -105,10 +125,7 @@ static if (shouldUseDLLNotifications)
 
 					setUpEverythingWithSKSEDLL(stringBuffer, cast(ubyte*) notification.Loaded.DllBase);
 
-					HANDLE ntdll = GetModuleHandleW("ntdll.dll");
-					auto ldrUnregisterDllNotification = cast(LdrUnregisterDllNotification) GetProcAddress(ntdll, "LdrUnregisterDllNotification");
-
-					ldrUnregisterDllNotification(global.dllRegistrationNotificationCookie);
+					global.linked.LdrUnregisterDllNotification(global.dllRegistrationNotificationCookie);
 				}
 			}
 		}

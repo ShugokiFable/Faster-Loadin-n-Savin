@@ -145,6 +145,10 @@ version (Windows)
 		alias PUSER_THREAD_START_ROUTINE = NTSTATUS function (scope void* ThreadParameter) nothrow @nogc;
 		alias PVECTORED_EXCEPTION_HANDLER = int function (scope EXCEPTION_POINTERS* exceptionInfo) nothrow @nogc;
 		alias PLDR_DLL_NOTIFICATION_FUNCTION = void function (uint NotificationReason, scope const(LDR_DLL_NOTIFICATION_DATA)* NotificationData, void* context) nothrow @nogc;
+	}
+
+	extern(Windows)
+	{
 		alias LdrRegisterDllNotification = NTSTATUS function (uint Flags, PLDR_DLL_NOTIFICATION_FUNCTION NotificationFunction, void* Context, scope void** Cookie) nothrow @nogc;
 		alias LdrUnregisterDllNotification = NTSTATUS function (scope void* Cookie) nothrow @nogc;
 	}

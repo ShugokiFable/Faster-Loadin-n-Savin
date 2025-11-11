@@ -42,6 +42,8 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 
 	global.performanceFrequencyMillisecondMultiplier = 1000.0 / cast(double) global.performanceFrequency;
 
+	global.linked.linkAll;
+
 	uint error = void;
 	const(wchar)[] errorMessage = void;
 	const(ubyte)[] ini = void;
@@ -159,10 +161,12 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 		{
 			static if (shouldUseDLLNotifications)
 			{
-				HANDLE ntdll = GetModuleHandleW("ntdll.dll");
-				auto ldrRegisterDllNotification = cast(LdrRegisterDllNotification) GetProcAddress(ntdll, "LdrRegisterDllNotification");
-
-				error = ldrRegisterDllNotification(0, &dllRegistrationNotificationHandler!(), null, &global.dllRegistrationNotificationCookie);
+				error = global.linked.LdrRegisterDllNotification(
+					0,
+					&dllRegistrationNotificationHandler!(),
+					null,
+					&global.dllRegistrationNotificationCookie
+				);
 
 				if (error)
 				{
