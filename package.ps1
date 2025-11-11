@@ -23,7 +23,7 @@ try
 {
 	$INIFilePath = "$Source/Save&LoadAcceleratorForSKSECosaves.ini"
 
-	$Variants = @('ae', 'ae640', 'ae353', 'se', 'vr', 'gog', 'gog659')
+	$Variants = @('ae', 'ae1130', 'ae640', 'ae353', 'se', 'vr', 'gog', 'gog659')
 
 	ForEach-InParallel $Variants `
 	{
