@@ -11,6 +11,11 @@ static if (targetedGameArchetype == GameArchetype.ae)
 	enum uint expectedSKSE64Version = 0x02_02_006_0;
 	enum string defaultSKSE64DLLName = "skse64_1_6_1170.dll";
 }
+else static if (targetedGameArchetype == GameArchetype.ae1130)
+{
+	enum uint expectedSKSE64Version = 0x02_02_005_0;
+	enum string defaultSKSE64DLLName = "skse64_1_6_1130.dll";
+}
 else static if (targetedGameArchetype == GameArchetype.ae640)
 {
 	enum uint expectedSKSE64Version = 0x02_02_003_0;
