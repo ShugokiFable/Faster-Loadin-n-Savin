@@ -213,22 +213,37 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 	global.addressOf.globalSKSE64Provider = cast(SKSE64Provider*) (sections.rdata.ptr + skse64Offsets.globalSKSE64Provider);
 
-	if (global.addressOf.globalSKSE64Provider.skse64Version != expectedSKSE64Version)
+	uint skse64Version = global.addressOf.globalSKSE64Provider.skse64Version;
+
+	if (skse64Version != expectedSKSE64Version)
 	{
-		wchar* s = stringBuffer.ptr;
-		blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
-		s += 204;
-		blit(s, "Expected version: 0x"w.ptr, 20);
-		s += 20;
-		expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
-		s += 8;
-		blit(s, "; Actual version: 0x"w.ptr, 20);
-		s += 20;
-		global.addressOf.globalSKSE64Provider.skse64Version.asHexInto!true(s[0 .. 8]);
-		s += 8;
-		*s++ = '.';
-		*s++ = '\0';
-		reportErrorToUser(stringBuffer.ptr);
+		static if (__traits(compiles, isOutdatedSKSEVersion(stringBuffer, skse64Version, sections.rdata.ptr)))
+		{
+			bool isKnownOutdatedVersion = isOutdatedSKSEVersion(stringBuffer, skse64Version, sections.rdata.ptr);
+		}
+		else
+		{
+			bool isKnownOutdatedVersion = false;
+		}
+
+		if (!isKnownOutdatedVersion)
+		{
+			wchar* s = stringBuffer.ptr;
+			blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
+			s += 204;
+			blit(s, "Expected version: 0x"w.ptr, 20);
+			s += 20;
+			expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
+			s += 8;
+			blit(s, "; Actual version: 0x"w.ptr, 20);
+			s += 20;
+			skse64Version.asHexInto!true(s[0 .. 8]);
+			s += 8;
+			*s++ = '.';
+			*s++ = '\0';
+			reportErrorToUser(stringBuffer.ptr);
+		}
+
 		return false;
 	}
 
@@ -805,5 +820,137 @@ void specialSKSE64AssignStateSaver (
 	auto pointer = cast(size_t) providerReceiver | specialStateSaverTag;
 
 	serialisationProvider.assignStateSaver(dllPluginIndex, cast(SerialisationProvider.ProviderReceiver) pointer);
+}
+
+
+bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint skse64Version, scope const(ubyte)* skseRData) nothrow @nogc
+{
+	uint versionOf (uint offset)
+	{
+		return (cast(const(SKSE64Provider)*) (skseRData + offset)).skse64Version;
+	}
+
+	static if (targetedGameArchetype == GameArchetype.se)
+	{
+		__gshared wchar[203] message = "Version 2.0.1x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.0.20 of SKSE.\0";
+		enum wstring url = "https://skse.silverlock.org/#:~:text=game%20version%201%2E5%2E97";
+
+		if (versionOf(skse64v2_0_17_globalSKSE64Provider) == 0x02_00_011_0)
+		{
+			message[13] = '7';
+		}
+		else
+		{
+			uint version_ = versionOf(skse64v2_0_18_or_19_globalSKSE64Provider);
+
+			if ((version_ == 0x02_00_012_0) | (version_ == 0x02_00_013_0))
+			{
+				message[13] = '8' + ((version_ >>> 4) & 1);
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+	else static if (targetedGameArchetype == GameArchetype.vr)
+	{
+		__gshared wchar[203] message = "Version 2.0.xx of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.0.12 of SKSE.\0";
+		enum wstring url = "https://skse.silverlock.org/#:~:text=Current%20VR%20build";
+
+		if (versionOf(skseVRv2_0_11_globalSKSE64Provider) == 0x02_00_00B_0)
+		{
+			message[12] = '1';
+			message[13] = '1';
+		}
+		else
+		{
+			uint version_ = versionOf(skseVRv2_0_09_or_10_globalSKSE64Provider);
+
+			if (version_ == 0x02_00_009_0)
+			{
+				message[12] = '0';
+				message[13] = '9';
+			}
+			else if (version_ == 0x02_00_00A_0)
+			{
+				message[12] = '1';
+				message[13] = '0';
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+	else static if (targetedGameArchetype == GameArchetype.ae1130)
+	{
+		__gshared wchar[201] message = "Version 2.2.4 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.5 of SKSE.\0";
+		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+
+		if (skse64Version == 0x02_02_004_0)
+		{}
+		else
+		{
+			return false;
+		}
+	}
+	else static if (targetedGameArchetype == GameArchetype.ae640)
+	{
+		__gshared wchar[201] message = "Version 2.2.x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.3 of SKSE.\0";
+		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+
+		uint version_ = versionOf(skse64v2_2_01_or_02_globalSKSE64Provider);
+
+		if ((version_ == 0x02_02_001_0) | (version_ == 0x02_02_002_0))
+		{
+			message[12] = '2' - ((version_ >>> 4) & 1);
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else static if (targetedGameArchetype == GameArchetype.gog659)
+	{
+		__gshared wchar[207] message = "Version 2.2.2 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.3 (GOG) of SKSE.\0";
+		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+
+		if (versionOf(skse64v2_2_02gog_globalSKSE64Provider) == 0x02_02_002_0)
+		{}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		static assert(false);
+	}
+
+	uint button = showMessageBox(message.ptr, errorDialogTitle.ptr, MB_OKCANCEL | MB_ICONHAND);
+
+	if (button == IDOK)
+	{
+		extern(Windows)
+		static uint openURL (scope void* context)
+		{
+			CoInitializeEx(null, COINIT.COINIT_APARTMENTTHREADED | COINIT.COINIT_DISABLE_OLE1DDE);
+			ShellExecuteW(null, null, url.ptr, null, null, SW_RESTORE);
+			CoUninitialize;
+			return 0;
+		}
+
+		HANDLE thread = void;
+
+		/+ Firefox causes ShellExecuteW to hang until Firefox receives focus from the user.
+		   wtf firefox ??? +/
+		if (makeThread(&thread, &openURL) == 0)
+		{
+			NtClose(thread);
+		}
+	}
+
+	return true;
 }
 

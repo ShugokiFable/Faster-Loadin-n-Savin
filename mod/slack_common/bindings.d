@@ -133,6 +133,13 @@ version (Windows)
 	extern(Windows) uint RtlRemoveVectoredExceptionHandler (scope void* Handle) nothrow @nogc;
 
 
+	extern(Windows) HRESULT CoInitializeEx (scope void* pvReserved, uint dwCoInit) @trusted nothrow @nogc;
+	extern(Windows) void CoUninitialize () @trusted nothrow @nogc;
+
+
+	extern(Windows) HINSTANCE ShellExecuteW (HWND hwnd, scope const(wchar)* lpOperation, scope const(wchar)* lpFile, scope const(wchar)* lpParameters, scope const(wchar)* lpDirectory, int nShowCmd) nothrow @nogc;
+
+
 	extern(Windows)
 	{
 		alias PUSER_THREAD_START_ROUTINE = NTSTATUS function (scope void* ThreadParameter) nothrow @nogc;
@@ -1475,5 +1482,51 @@ version (Windows)
 
 	extern(Windows) int MessageBoxW (scope HWND hWnd, scope const(wchar)* lpText, scope const(wchar)* lpCaption, uint uType) nothrow @nogc;
 	extern(Windows) int MessageBoxA (scope HWND hWnd, scope const(char)* lpText, scope const(char)* lpCaption, uint uType) nothrow @nogc;
+
+
+	enum uint IDOK = 1;
+	enum uint IDCANCEL = 2;
+	enum uint IDABORT = 3;
+	enum uint IDRETRY = 4;
+	enum uint IDIGNORE = 5;
+	enum uint IDYES = 6;
+	enum uint IDNO = 7;
+	enum uint IDCLOSE = 8;
+	enum uint IDHELP = 9;
+	enum uint IDTRYAGAIN = 10;
+	enum uint IDCONTINUE = 11;
+	enum uint IDTIMEOUT = 32000;
+
+
+	enum uint SW_HIDE = 0;
+	enum uint SW_SHOWNORMAL = 1;
+	enum uint SW_NORMAL = 1;
+	enum uint SW_SHOWMINIMIZED = 2;
+	enum uint SW_SHOWMAXIMIZED = 3;
+	enum uint SW_MAXIMIZE = 3;
+	enum uint SW_SHOWNOACTIVATE = 4;
+	enum uint SW_SHOW = 5;
+	enum uint SW_MINIMIZE = 6;
+	enum uint SW_SHOWMINNOACTIVE = 7;
+	enum uint SW_SHOWNA = 8;
+	enum uint SW_RESTORE = 9;
+	enum uint SW_SHOWDEFAULT = 10;
+	enum uint SW_FORCEMINIMIZE = 11;
+	enum uint SW_MAX = 11;
+
+
+	enum COINITBASE
+	{
+		COINITBASE_MULTITHREADED = 0x0
+	}
+
+
+	enum COINIT
+	{
+		COINIT_APARTMENTTHREADED = 0x2,
+		COINIT_MULTITHREADED = COINITBASE.COINITBASE_MULTITHREADED,
+		COINIT_DISABLE_OLE1DDE = 0x4,
+		COINIT_SPEED_OVER_MEMORY = 0x8,
+	}
 }
 

@@ -104,6 +104,8 @@ try
 		'ntdll.lib'
 		'kernel32.lib'
 		'User32.lib'
+		'Ole32.lib'
+		'shell32.lib'
 	)
 
 	$DLLs = @(

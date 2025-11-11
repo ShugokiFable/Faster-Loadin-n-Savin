@@ -21,6 +21,14 @@ enum VersionedOffsets versionedOffsets = {
 };
 
 
+enum uint skse64v2_2_01_or_02_globalSKSE64Provider = 0x0000b450; /+ .rdata +/
+enum uint skse64v2_2_02gog_globalSKSE64Provider = 0x0000b468; /+ .rdata +/
+enum uint skse64v2_0_17_globalSKSE64Provider = 0x000096b8; /+ .rdata +/
+enum uint skse64v2_0_18_or_19_globalSKSE64Provider = 0x0000de50; /+ .rdata +/
+enum uint skseVRv2_0_09_or_10_globalSKSE64Provider = 0x00009608; /+ .rdata +/
+enum uint skseVRv2_0_11_globalSKSE64Provider = 0x0000de00; /+ .rdata +/
+
+
 struct VersionedOffset
 {
 	/+ The latest version of the Anniversary Edition. (Technically still the Special Edition, just a newer version). +/
