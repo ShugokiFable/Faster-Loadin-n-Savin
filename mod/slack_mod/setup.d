@@ -390,7 +390,7 @@ allocatedSKSEskseAdjacentMemory:
 				&parallelSaveLoadThreadProcedureEntry!(),
 				cast(void*) threadIndex,
 				0,
-				1.MB,
+				512.KB,
 				greaterOf(stackReservation, 1.MB)
 			);
 
