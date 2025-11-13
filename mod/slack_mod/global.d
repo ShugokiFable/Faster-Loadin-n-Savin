@@ -46,6 +46,8 @@ struct GlobalState
 	ResolvedAddresses addressOf;
 	ConfigurationLongLived configuration;
 	SaveLoadState saveLoad;
+
+	static assert(__traits(isZeroInit, GlobalState));
 }
 
 
