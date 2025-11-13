@@ -32,6 +32,8 @@ struct ConfigurationLongLived
 		logSaveTimingsToConsole = 1 << 4,
 		logLoadTimingsToConsole = 1 << 5,
 		workAroundThirdPartyBugs = 1 << 6,
+		profileSaving = 1 << 7,
+		profileLoading = 1 << 8,
 	}
 
 	void setToDefault () scope @safe pure nothrow @nogc
@@ -185,6 +187,13 @@ void parseINIConfiguration (
 		mixin(iniKey!("workaroundthirdpartybugs", q{conditionallyMutateMask(configuration.flags, F.workAroundThirdPartyBugs, iniValueAsBoolean(a.value, true));}));
 	};
 
+	/+ [Profiling] +/
+	scope profilingSectionHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
+	{
+		mixin(iniKey!("profilesaving", q{conditionallyMutateMask(configuration.flags, F.profileSaving, iniValueAsBoolean(a.value));}));
+		mixin(iniKey!("profileloading", q{conditionallyMutateMask(configuration.flags, F.profileLoading, iniValueAsBoolean(a.value));}));
+	};
+
 	/+ [ParallelSaving] +/
 	scope parallelSavingHandler = (scope const(INIAssignment!(const(char)))* a) @trusted
 	{
@@ -206,6 +215,7 @@ void parseINIConfiguration (
 		{
 			mixin(iniSection!("skse", q{skseSectionHandler}));
 			mixin(iniSection!("settings", q{settingsSectionHandler}));
+			mixin(iniSection!("profiling", q{profilingSectionHandler}));
 			mixin(iniSection!("parallelsaving", q{parallelSavingHandler}));
 
 			return skipINISection;
