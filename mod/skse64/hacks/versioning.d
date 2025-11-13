@@ -52,5 +52,6 @@ else
 }
 
 
+static immutable(char[]) defaultSKSE64DLLNameUTF8 = defaultSKSE64DLLName;
 static immutable(wchar[]) defaultSKSE64DLLNameUTF16 = defaultSKSE64DLLName;
 

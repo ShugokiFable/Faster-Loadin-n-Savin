@@ -19,7 +19,9 @@ struct ConfigurationLongLived
 	Flags flags;
 	ubyte parallelSavingThreadCount;
 	wchar[] skseDLLName;
+	char[] skseDLLNameUTF8;
 	wchar[256] skseDLLNameBuffer = 0;
+	char[256] skseDLLNameBufferUTF8 = 0;
 
 	enum Flags : uint
 	{

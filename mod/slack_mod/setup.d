@@ -49,7 +49,9 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 	const(wchar)[] errorMessage = void;
 	const(ubyte)[] ini = void;
 	const(wchar)* skseDLLName = void;
+	const(char)* skseDLLNameUTF8 = void;
 	ushort skseDLLNameLength = void;
+	ushort skseDLLNameLengthUTF8 = void;
 
 	global.configuration.setToDefault;
 
@@ -69,6 +71,8 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 		ini = null;
 		skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
 		skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
+		skseDLLNameUTF8 = defaultSKSE64DLLNameUTF8.ptr;
+		skseDLLNameLengthUTF8 = defaultSKSE64DLLNameUTF8.length;
 	}
 	else
 	{
@@ -138,21 +142,30 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 
 				skseDLLName = stringBuffer.ptr;
 				skseDLLNameLength = cast(ushort) (cast(size_t) (utf16 - skseDLLName));
+				skseDLLNameUTF8 = transientConfiguration.skseDLLName.ptr;
+				skseDLLNameLengthUTF8 = cast(ushort) (utf8 - skseDLLNameUTF8);
 			}
 			else
 			{
 			defaultSKSEDLLName:
 				skseDLLName = defaultSKSE64DLLNameUTF16.ptr;
 				skseDLLNameLength = defaultSKSE64DLLNameUTF16.length;
+				skseDLLNameUTF8 = defaultSKSE64DLLNameUTF8.ptr;
+				skseDLLNameLengthUTF8 = defaultSKSE64DLLNameUTF8.length;
 			}
 		}
 	}
 
 	skseDLLNameLength = cast(ushort) lesserOf(skseDLLNameLength, global.configuration.skseDLLNameBuffer.length - 1);
+	skseDLLNameLengthUTF8 = cast(ushort) lesserOf(skseDLLNameLengthUTF8, global.configuration.skseDLLNameBufferUTF8.length - 1);
 
 	blit(global.configuration.skseDLLNameBuffer.ptr, skseDLLName, skseDLLNameLength);
 	global.configuration.skseDLLNameBuffer[skseDLLNameLength] = '\0';
 	global.configuration.skseDLLName = global.configuration.skseDLLNameBuffer[0 .. skseDLLNameLength];
+
+	blit(global.configuration.skseDLLNameBufferUTF8.ptr, skseDLLNameUTF8, skseDLLNameLengthUTF8);
+	global.configuration.skseDLLNameBufferUTF8[skseDLLNameLengthUTF8] = '\0';
+	global.configuration.skseDLLNameUTF8 = global.configuration.skseDLLNameBufferUTF8[0 .. skseDLLNameLengthUTF8];
 
 	if (global.configuration.skseHooksAreRequired)
 	{
