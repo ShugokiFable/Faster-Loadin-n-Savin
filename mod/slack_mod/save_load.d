@@ -766,7 +766,7 @@ void saveCosaveSerial () nothrow @nogc
 	if (global.configuration.flags & ConfigurationLongLived.Flags.logSaveTimingsToConsole)
 	{
 		global.addressOf.skseConsolePrint(
-			"S.L.A.C.K. | Cosave save timing | Creating file: %5.3f ms | Plugin callbacks: %5.3f ms | Writing file: %5.3f ms | Total: %5.3f ms",
+			"S.L.A.C.K. | Cosave save timing | Creating file: %7.3f ms | Plugin callbacks: %7.3f ms | Writing file: %7.3f ms | Total: %7.3f ms",
 			cast(double) (time[1] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[2] - time[1]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[3] - time[2]) * global.performanceFrequencyMillisecondMultiplier,
@@ -996,7 +996,7 @@ waitingForSaveToFinish:
 	if (global.configuration.flags & ConfigurationLongLived.Flags.logSaveTimingsToConsole)
 	{
 		global.addressOf.skseConsolePrint(
-			"S.L.A.C.K. | Cosave parallel save timing | Threads used: %u | Retries required: %u | Creating file: %5.3f ms | Plugin callbacks: %5.3f ms | Writing file: %5.3f ms | Total: %5.3f ms",
+			"S.L.A.C.K. | Cosave parallel save timing | Threads used: %u | Retries required: %u | Creating file: %7.3f ms | Plugin callbacks: %7.3f ms | Writing file: %7.3f ms | Total: %7.3f ms",
 			global.configuration.parallelSavingThreadCount,
 			retryCount,
 			cast(double) (time[1] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
@@ -1555,7 +1555,7 @@ void loadCosaveSerial () nothrow @nogc
 	if (global.configuration.flags & ConfigurationLongLived.Flags.logLoadTimingsToConsole)
 	{
 		global.addressOf.skseConsolePrint(
-			"S.L.A.C.K. | Cosave load timing | Opening file: %5.3f ms | Reading file: %5.3f ms | Plugin callbacks: %5.3f ms | Total: %5.3f ms",
+			"S.L.A.C.K. | Cosave load timing | Opening file: %7.3f ms | Reading file: %7.3f ms | Plugin callbacks: %7.3f ms | Total: %7.3f ms",
 			cast(double) (time[1] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[2] - time[1]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[3] - time[2]) * global.performanceFrequencyMillisecondMultiplier,
@@ -1638,12 +1638,12 @@ void logUnpatchedSaveLoadTimingAfter (scope immutable(char)* format) nothrow @no
 
 void logUnpatchedSaveTimingAfter () nothrow @nogc
 {
-	logUnpatchedSaveLoadTimingAfter("S.L.A.C.K. | Unpatched cosave save timing | Total: %5.3f ms");
+	logUnpatchedSaveLoadTimingAfter("S.L.A.C.K. | Unpatched cosave save timing | Total: %7.3f ms");
 }
 
 
 void logUnpatchedLoadTimingAfter () nothrow @nogc
 {
-	logUnpatchedSaveLoadTimingAfter("S.L.A.C.K. | Unpatched cosave load timing | Total: %5.3f ms");
+	logUnpatchedSaveLoadTimingAfter("S.L.A.C.K. | Unpatched cosave load timing | Total: %7.3f ms");
 }
 
