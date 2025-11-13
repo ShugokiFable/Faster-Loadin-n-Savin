@@ -1,6 +1,19 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.2.0 (2025-11-13)
+
+The tenth release of this plugin, the changes are as follows:
+- A profiling mode has been added: when enabled, the time taken for each SKSE plugin to save and-or load will be logged to the in-game console.
+- An oversight, introduced by version 1.0.2, which caused the plugin's DLL to be roughly 9 KB larger than necessary was corrected.
+- The memory-usage of each thread used for parallel-saving has been reduced slightly.
+- When logging errors related to a SKSE plugin's usage of the cosave saving/loading API, the identifier of the offending plugin is now also logged.
+- The alignment of timings logged to the console have been changed to fit what they were intended to be.
+
+---
+
+The song recommendation for this release is [isui's cover of "Smoky quartz" by Komiya Cofey](https://www.youtube.com/watch?v=_tYbmNb4VVQ).
+
 ## Version 1.1.0 (2025-11-11)
 
 Something about that date rings a bell, doesn't it?
