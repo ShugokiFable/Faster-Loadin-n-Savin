@@ -431,6 +431,7 @@ allocatedSKSEskseAdjacentMemory:
 	}
 
 	global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
+	global.addressOf.loadedSKSEPlugins = cast(std_vector!DLLPlugin*) (sections.data.ptr + skse64Offsets.loadedPlugins);
 	global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
 	global.addressOf.supplySKSEProviderLEA = sections.text.ptr + skse64Offsets.supplyProviderLEA;
 	global.addressOf.createSKSECosave = sections.text.ptr + skse64Offsets.createCosave;

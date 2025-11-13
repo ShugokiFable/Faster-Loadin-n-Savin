@@ -53,6 +53,7 @@ struct GlobalState
 
 struct ResolvedAddresses
 {
+	std_vector!DLLPlugin* loadedSKSEPlugins;
 	SKSE64Provider* globalSKSE64Provider;
 	SerialisationProvider* globalSerialisationProvider;
 	std_string* skseCosaveSavePath;
