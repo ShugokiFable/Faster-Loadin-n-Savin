@@ -779,6 +779,9 @@ void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulon
 		++baseName;
 		uint baseNameLength = cast(uint) (end - baseName);
 
+		/+ If another plugin is added here, remember to update the logging
+		   in the `SpecialSaving` implementations. +/
+
 		if (baseNameLength == 11)
 		{
 			if (caseInsensitiveASCIIEquality!true(baseName, "stb_widgets"w.ptr, 11))
