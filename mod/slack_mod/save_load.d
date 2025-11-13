@@ -492,6 +492,53 @@ void performanceCriticalBlit (
 }
 
 
+/+ The serialisation-state array is a sparse-array wherein the index
+   of the serialisation-state corresponds to the index of the parent DLL-plugin,
+   but biased by one, because the serialisation-state for SKSE itself
+   doesn't have a corresponding DLL-plugin/ +/
+pragma(inline, true)
+DLLPluginIndex dllPluginIndex () (scope const(SerialisationStateForPlugin)* plugin) nothrow @nogc
+{
+	return cast(DLLPluginIndex) ((plugin - global.addressOf.cosaveAwarePlugins.base) - 1);
+}
+
+
+pragma(inline, true)
+DLLPlugin* dllPlugin () (DLLPluginIndex pluginIndex) nothrow @nogc
+in (pluginIndex < global.addressOf.loadedSKSEPlugins.size)
+{
+	return global.addressOf.loadedSKSEPlugins.base + pluginIndex;
+}
+
+
+pragma(inline, true)
+auto pluginStringsFromSerialisationStateIndex () (size_t sparseIndex) nothrow @nogc
+{
+	enum bool haveFilePath = __traits(compiles, DLLPlugin.filePath);
+
+	static struct Result
+	{
+		const(char)* name;
+		static if (haveFilePath) const(char)* filePath;
+	}
+
+	Result result = void;
+
+	const(DLLPlugin)* dllPlugin = (cast(DLLPluginIndex) (sparseIndex - 1)).dllPlugin;
+
+	bool isSKSE = sparseIndex == 0;
+
+	result.name = isSKSE ? "SKSE".ptr : dllPlugin.metadata.name;
+
+	static if (__traits(compiles, DLLPlugin.filePath))
+	{
+		result.filePath = isSKSE ? global.configuration.skseDLLNameUTF8.ptr : dllPlugin.filePath.base;
+	}
+
+	return result;
+}
+
+
 pragma(inline, true)
 HANDLE createCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 {
