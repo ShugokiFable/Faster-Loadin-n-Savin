@@ -3,6 +3,8 @@
 
 module slack_mod.global;
 
+import core.atomic : atomicExchange, atomicLoad, atomicStore, MemoryOrder;
+
 import game;
 
 import slack_common.algorithms;
@@ -10,6 +12,7 @@ import slack_common.bindings;
 import slack_common.cpp;
 import slack_common.dynamic_linking;
 import slack_common.text;
+import slack_common.threading;
 import slack_common.user_interface;
 import slack_mod.configuration;
 import slack_mod.save_load;
@@ -34,6 +37,7 @@ struct GlobalState
 	double performanceFrequencyMillisecondMultiplier = 0;
 	bool haveWarnedUserAboutNearlyReachingSaveFileSizeLimit;
 	bool haveSetUpSpecialSKSE64Providers;
+	ubyte skseConsolePrintLock;
 
 	static if (shouldUseDLLNotifications)
 	{
@@ -220,5 +224,32 @@ int vectoredExceptionHandler () (scope EXCEPTION_POINTERS* exceptionInfo) @syste
 	}
 
 	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+
+pragma(inline, true)
+void threadSafeSKSEConsolePrint (Args...) (scope const(char)* format, scope auto ref Args arguments)
+{
+acquireLock:
+	if ((&global.skseConsolePrintLock).atomicExchange!(MemoryOrder.acq_rel)(ubyte(1)) == 0)
+	{
+		global.addressOf.skseConsolePrint(format, arguments);
+
+		global.skseConsolePrintLock.atomicStore!(MemoryOrder.rel)(ubyte(0));
+		wakeAllThreadsVia(&global.skseConsolePrintLock);
+	}
+	else
+	{
+	wait:
+		ubyte lock = global.skseConsolePrintLock.atomicLoad!(MemoryOrder.acq);
+
+		if (lock != 0)
+		{
+			waitVia(&global.skseConsolePrintLock, lock);
+			goto wait;
+		}
+
+		goto acquireLock;
+	}
 }
 
