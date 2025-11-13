@@ -477,6 +477,14 @@ version (SLACKVerificationMode)
 			result.asHexInto(global.saveLoad.verificationHead[0 .. 8]); global.saveLoad.verificationHead += 8;
 			*global.saveLoad.verificationHead++ = '\t';
 			size.asHexInto(global.saveLoad.verificationHead[0 .. 8]); global.saveLoad.verificationHead += 8;
+
+			version (SLACKVerificationModeExtended)
+			{
+				*global.saveLoad.verificationHead++ = '\t';
+				blit(global.saveLoad.verificationHead, cast(const(char)*) data, result);
+				global.saveLoad.verificationHead += result;
+			}
+
 			*global.saveLoad.verificationHead++ = '\r';
 			*global.saveLoad.verificationHead++ = '\n';
 			return result;
