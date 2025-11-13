@@ -8,6 +8,8 @@ import game;
 
 enum VersionedOffsets versionedOffsets = {
 	globalSKSE64Provider: {ae: 0x0000b480, ae1130: 0x0000b468, ae640: 0x0000b470, ae353: 0x0000b438, se: 0x0000dad8, vr: 0x0000de20, gog: 0x0000b140, gog659: 0x0000b488}, /+ .rdata +/
+	       loadedPlugins: {ae: 0x00001ae0, ae1130: 0x00001ae0, ae640: 0x00001ae0, ae353: 0x00001ae0, se: 0x00001a08, vr: 0x00014178, gog: 0x00001ae0, gog659: 0x00001ae0}, /+ .data +/
+	    loadedPluginSize: {ae: 0x000003b0, ae1130: 0x000003b0, ae640: 0x000003b0, ae353: 0x000003b0, se: 0x00000030, vr: 0x00000030, gog: 0x000003b0, gog659: 0x000003b0}, /+ constant +/
 	      cosaveSavePath: {ae: 0x00001b18, ae1130: 0x00001b18, ae640: 0x00001b18, ae353: 0x00001b18, se: 0x00001b78, vr: 0x000141e0, gog: 0x00001b18, gog659: 0x00001b18}, /+ .data +/
 	  cosaveAwarePlugins: {ae: 0x00010d88, ae1130: 0x00010d88, ae640: 0x00010d40, ae353: 0x00010d30, se: 0x000123a8, vr: 0x000141c8, gog: 0x00010bd8, gog659: 0x00010d30}, /+ .data +/
 	      initialiseCall: {ae: 0x00088c44, ae1130: 0x00088c44, ae640: 0x00088a84, ae353: 0x00000000, se: 0x00000000, vr: 0x0009c140, gog: 0x0008afb4, gog659: 0x00088c54}, /+ .text +/
@@ -54,6 +56,8 @@ struct VersionedOffset
 struct VersionedOffsets
 {
 	VersionedOffset globalSKSE64Provider;
+	VersionedOffset loadedPlugins;
+	VersionedOffset loadedPluginSize;
 	VersionedOffset cosaveSavePath;
 	VersionedOffset cosaveAwarePlugins;
 	VersionedOffset initialiseCall;
