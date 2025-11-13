@@ -9,6 +9,11 @@
 
 module skse64.dll_plugins;
 
+import skse64.hacks.offsets;
+
+import slack_common.bindings;
+import slack_common.cpp;
+
 
 enum DLLPluginIndex : uint
 {
@@ -27,6 +32,31 @@ struct DLLPluginMetadata
 	uint schemaVersion;
 	const(char)* name;
 	uint pluginVersion;
+}
+
+
+struct DLLPlugin
+{
+	static if (skse64Offsets.loadedPluginSize == 0x00000030)
+	{
+		HMODULE dll;
+		DLLPluginMetadata metadata;
+		ubyte[skse64Offsets.loadedPluginSize - 32] padding;
+	}
+	else static if (skse64Offsets.loadedPluginSize == 0x000003B0)
+	{
+		std_string filePath;
+		HMODULE dll;
+		DLLPluginMetadata metadata;
+		DLLPluginIndex index;
+		ubyte[skse64Offsets.loadedPluginSize - 72] padding;
+	}
+	else
+	{
+		static assert(false);
+	}
+
+	static assert(DLLPlugin.sizeof == skse64Offsets.loadedPluginSize);
 }
 
 
