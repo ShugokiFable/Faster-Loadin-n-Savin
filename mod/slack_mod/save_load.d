@@ -5,6 +5,7 @@ module slack_mod.save_load;
 
 import core.atomic : atomicExchange, atomicFetchAdd, atomicLoad, atomicStore, MemoryOrder;
 
+import ldc.intrinsics : llvm_expect;
 import ldc.llvmasm : __ir_pure;
 
 import game;
@@ -112,12 +113,9 @@ align(8)
 
 	struct CosaveAwarePluginStateForSaving
 	{
-		/+ Misaligned for the memory savings. +/
-	align(4)
 		SerialisationProvider.ProviderReceiver stateSaver;
 		uint uniqueID;
-
-		static assert(CosaveAwarePluginStateForSaving.sizeof == 12);
+		uint sparseIndex;
 	}
 }
 
@@ -568,11 +566,12 @@ HANDLE createCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 
 
 pragma(inline, true)
-bool savePluginData (
+bool savePluginData (bool parallel = false) (
 	scope SaveLoadPluginState* pluginState,
 	uint pluginUniqueID,
 	scope SerialisationProvider.ProviderReceiver pluginStateSaver,
-	scope ubyte** endOfData
+	scope ubyte** endOfData,
+	uint sparseIndex
 ) nothrow @nogc
 {
 	/+ We preemptively account for the plugin-header--
@@ -585,20 +584,95 @@ bool savePluginData (
 	pluginState.currentRecordHeader = unaligned(cast(Cosave.RecordHeader*) &currentPluginHeader[1]);
 	pluginState.recordCount = 0;
 
-	SerialisationProvider.ProviderReceiver detaggedStateSaver = cast(SerialisationProvider.ProviderReceiver) (
-		cast(size_t) pluginStateSaver & ~specialStateSaverTag
-	);
+	enum string setUpCall =
+	q{
+		SerialisationProvider.ProviderReceiver detaggedStateSaver = cast(SerialisationProvider.ProviderReceiver) (
+			cast(size_t) pluginStateSaver & ~specialStateSaverTag
+		);
 
-	SerialisationProvider* serialisationProvider = (
-		  cast(size_t) pluginStateSaver == cast(size_t) detaggedStateSaver
-		? global.addressOf.globalSerialisationProvider
-		: &global.specialSerialisationProvider
-	);
+		SerialisationProvider* serialisationProvider = (
+			  cast(size_t) pluginStateSaver == cast(size_t) detaggedStateSaver
+			? global.addressOf.globalSerialisationProvider
+			: &global.specialSerialisationProvider
+		);
+	};
+
+	mixin(setUpCall);
 
 	/+ Might as well write it now whilst it's hot in the cache. +/
 	currentPluginHeader.signature = pluginUniqueID;
 
-	detaggedStateSaver(serialisationProvider);
+	if ((global.configuration.flags & ConfigurationLongLived.Flags.profileSaving).llvm_expect(0))
+	{
+		static void profiledStateSaverCall (scope SerialisationProvider.ProviderReceiver pluginStateSaver, uint sparseIndex)
+		{
+			pragma(inline, false);
+
+			mixin(setUpCall);
+
+			ulong before = void;
+			RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &before);
+
+			detaggedStateSaver(serialisationProvider);
+
+			ulong after = void;
+			RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &after);
+
+			double duration = cast(double) (after - before) * global.performanceFrequencyMillisecondMultiplier;
+
+			auto strings = pluginStringsFromSerialisationStateIndex(sparseIndex);
+
+			static if (__traits(compiles, strings.filePath))
+			{
+				static if (parallel)
+				{
+					threadSafeSKSEConsolePrint(
+						"S.L.A.C.K. | Thread: %3u | Plugin save callback: %7.3f ms | Plugin: %s [%s]",
+						ParallelSaving.threadStack.threadIndex,
+						duration,
+						strings.name,
+						strings.filePath
+					);
+				}
+				else
+				{
+					global.addressOf.skseConsolePrint(
+						"S.L.A.C.K. | Plugin save callback: %7.3f ms | Plugin: %s [%s]",
+						duration,
+						strings.name,
+						strings.filePath
+					);
+				}
+			}
+			else
+			{
+				static if (parallel)
+				{
+					threadSafeSKSEConsolePrint(
+						"S.L.A.C.K. | Thread: %3u | Plugin save callback: %7.3f ms | Plugin: %s",
+						ParallelSaving.threadStack.threadIndex,
+						duration,
+						strings.name
+					);
+				}
+				else
+				{
+					global.addressOf.skseConsolePrint(
+						"S.L.A.C.K. | Plugin save callback: %7.3f ms | Plugin: %s",
+						duration,
+						strings.name
+					);
+				}
+			}
+		}
+
+		/+ An exlined call to keep the branch short for when profiling is disabled. +/
+		profiledStateSaverCall(pluginStateSaver, sparseIndex);
+	}
+	else
+	{
+		detaggedStateSaver(serialisationProvider);
+	}
 
 	*endOfData = pluginState.head;
 
@@ -748,7 +822,7 @@ void saveCosaveSerial () nothrow @nogc
 			continue;
 		}
 
-		if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData))
+		if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, cast(uint) pluginIndex))
 		{
 			++header.pluginsWithDataInCosaveCount;
 		}
@@ -826,7 +900,7 @@ void saveCosaveParallel () nothrow @nogc
 
 		if ((plugin.stateSaver != null) & plugin.uniqueIDHasBeenAssigned)
 		{
-			if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData))
+			if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, 0))
 			{
 				++global.saveLoad.parallel.cosaveFilePluginsWithDataInCosaveCount;
 			}
@@ -916,7 +990,8 @@ retry:
 		global.saveLoad.parallel.cosaveAwarePluginsForSaving[cosaveAwarePluginCount] = (
 			SaveLoadStateParallel.CosaveAwarePluginStateForSaving(
 				dllPlugin.stateSaver,
-				dllPlugin.uniqueID
+				dllPlugin.uniqueID,
+				cast(uint) (pluginIndex - 1)
 			)
 		);
 
@@ -1163,7 +1238,7 @@ dormant:
 				&global.saveLoad.parallel.cosaveAwarePluginsForSaving[cosaveAwarePluginIndex]
 			);
 
-			if (savePluginData(&threadStack.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData))
+			if (savePluginData!true(&threadStack.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, plugin.sparseIndex))
 			{
 				uint sizeOfData = cast(uint) (endOfData - cosaveBufferPartition);
 				ubyte* dataInFile = global.saveLoad.parallel.cosaveFileHead.atomicFetchAdd!(MemoryOrder.acq_rel)(sizeOfData);
@@ -1514,7 +1589,50 @@ void loadCosaveSerial () nothrow @nogc
 
 		if (plugin.stateLoader != null)
 		{
-			plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+			if ((global.configuration.flags & ConfigurationLongLived.Flags.profileLoading).llvm_expect(0))
+			{
+				static void profiledStateLoaderCall (scope const(SerialisationStateForPlugin)* plugin)
+				{
+					pragma(inline, false);
+
+					ulong before = void;
+					RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &before);
+
+					plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+
+					ulong after = void;
+					RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &after);
+
+					double duration = cast(double) (after - before) * global.performanceFrequencyMillisecondMultiplier;
+
+					auto strings = pluginStringsFromSerialisationStateIndex(plugin - global.addressOf.cosaveAwarePlugins.base);
+
+					static if (__traits(compiles, strings.filePath))
+					{
+						global.addressOf.skseConsolePrint(
+							"S.L.A.C.K. | Plugin load callback: %7.3f ms | Plugin: %s [%s]",
+							duration,
+							strings.name,
+							strings.filePath
+						);
+					}
+					else
+					{
+						global.addressOf.skseConsolePrint(
+							"S.L.A.C.K. | Plugin load callback: %7.3f ms | Plugin: %s",
+							duration,
+							strings.name
+						);
+					}
+				}
+
+				/+ An exlined call to keep the branch short for when profiling is disabled. +/
+				profiledStateLoaderCall(plugin);
+			}
+			else
+			{
+				plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+			}
 		}
 
 		ubyte* nextPluginHeader = lesserOf(
