@@ -28,6 +28,7 @@ import slack_common.threading;
 import slack_common.tib_access;
 import slack_common.user_interface;
 import slack_mod.configuration;
+import slack_mod.exception_wrapper;
 import slack_mod.global;
 import slack_mod.limits;
 
@@ -571,7 +572,8 @@ bool savePluginData (bool parallel = false) (
 	uint pluginUniqueID,
 	scope SerialisationProvider.ProviderReceiver pluginStateSaver,
 	scope ubyte** endOfData,
-	uint sparseIndex
+	uint sparseIndex,
+	uint threadIndex
 ) nothrow @nogc
 {
 	/+ We preemptively account for the plugin-header--
@@ -584,6 +586,8 @@ bool savePluginData (bool parallel = false) (
 	pluginState.currentRecordHeader = unaligned(cast(Cosave.RecordHeader*) &currentPluginHeader[1]);
 	pluginState.recordCount = 0;
 
+	enum string consolePrint = parallel ? q{threadSafeSKSEConsolePrint} : q{global.addressOf.skseConsolePrint};
+
 	enum string setUpCall =
 	q{
 		SerialisationProvider.ProviderReceiver detaggedStateSaver = cast(SerialisationProvider.ProviderReceiver) (
@@ -595,6 +599,41 @@ bool savePluginData (bool parallel = false) (
 			? global.addressOf.globalSerialisationProvider
 			: &global.specialSerialisationProvider
 		);
+	};
+
+	enum string call =
+	q{
+		bool exceptionWasThrown = false;
+
+		if (global.configuration.flags & ConfigurationLongLived.Flags.errorFriendlyMode)
+		{
+			exceptionWasThrown = callThrowsException(serialisationProvider, detaggedStateSaver);
+		}
+		else
+		{
+			detaggedStateSaver(serialisationProvider);
+		}
+	};
+
+	enum string exceptionErrorMessages =
+	q{
+		static if (__traits(compiles, strings.filePath))
+		{
+			mixin(consolePrint)(
+				"S.L.A.C.K. | A SKSE plugin threw an exception whilst saving to the cosave. That plugin's data in the cosave may be corrupt. | Plugin data offset: %u | Plugin: %s [%s]",
+				pluginDataOffset,
+				strings.name,
+				strings.filePath
+			);
+		}
+		else
+		{
+			mixin(consolePrint)(
+				"S.L.A.C.K. | A SKSE plugin threw an exception whilst saving to the cosave. That plugin's data in the cosave may be corrupt. | Plugin data offset: %u | Plugin: %s",
+				pluginDataOffset,
+				strings.name
+			);
+		}
 	};
 
 	mixin(setUpCall);
@@ -613,7 +652,7 @@ bool savePluginData (bool parallel = false) (
 			ulong before = void;
 			RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &before);
 
-			detaggedStateSaver(serialisationProvider);
+			mixin(call);
 
 			ulong after = void;
 			RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &after);
@@ -622,13 +661,35 @@ bool savePluginData (bool parallel = false) (
 
 			auto strings = pluginStringsFromSerialisationStateIndex(sparseIndex);
 
+			const(ParallelSaveLoadThreadStack)* threadStack = ParallelSaving.threadStack;
+			uint threadIndex = threadStack.threadIndex;
+
+			if (exceptionWasThrown.llvm_expect(false))
+			{
+				static if (parallel)
+				{
+					global.anyPluginCosaveHandlerThrewAnException.atomicStore!(MemoryOrder.rel)(true);
+
+					const(ubyte)* cosaveBufferPartition = global.saveLoad.parallel.cosaveBuffer.baseOf(threadIndex);
+					uint pluginDataOffset = cast(uint) (threadStack.pluginState.head - cosaveBufferPartition);
+				}
+				else
+				{
+					global.anyPluginCosaveHandlerThrewAnException = true;
+
+					uint pluginDataOffset = cast(uint) (global.saveLoad.serial.pluginState.head - global.saveLoad.cosaveFileBuffer.base);
+				}
+
+				mixin(exceptionErrorMessages);
+			}
+
 			static if (__traits(compiles, strings.filePath))
 			{
 				static if (parallel)
 				{
 					threadSafeSKSEConsolePrint(
 						"S.L.A.C.K. | Thread: %3u | Plugin save callback: %7.3f ms | Plugin: %s [%s]",
-						ParallelSaving.threadStack.threadIndex,
+						threadIndex,
 						duration,
 						strings.name,
 						strings.filePath
@@ -650,7 +711,7 @@ bool savePluginData (bool parallel = false) (
 				{
 					threadSafeSKSEConsolePrint(
 						"S.L.A.C.K. | Thread: %3u | Plugin save callback: %7.3f ms | Plugin: %s",
-						ParallelSaving.threadStack.threadIndex,
+						threadIndex,
 						duration,
 						strings.name
 					);
@@ -671,7 +732,28 @@ bool savePluginData (bool parallel = false) (
 	}
 	else
 	{
-		detaggedStateSaver(serialisationProvider);
+		mixin(call);
+
+		if (exceptionWasThrown.llvm_expect(false))
+		{
+			static if (parallel)
+			{
+				global.anyPluginCosaveHandlerThrewAnException.atomicStore!(MemoryOrder.rel)(true);
+
+				const(ubyte)* cosaveBufferPartition = global.saveLoad.parallel.cosaveBuffer.baseOf(threadIndex);
+				uint pluginDataOffset = cast(uint) (pluginState.head - cosaveBufferPartition);
+			}
+			else
+			{
+				global.anyPluginCosaveHandlerThrewAnException = true;
+
+				uint pluginDataOffset = cast(uint) (pluginState.head - global.saveLoad.cosaveFileBuffer.base);
+			}
+
+			auto strings = pluginStringsFromSerialisationStateIndex(sparseIndex);
+
+			mixin(exceptionErrorMessages);
+		}
 	}
 
 	*endOfData = pluginState.head;
@@ -810,6 +892,7 @@ void saveCosaveSerial () nothrow @nogc
 	ubyte* endOfData = base + Cosave.Header.sizeof;
 
 	global.saveLoad.serial.pluginState.head = endOfData;
+	global.anyPluginCosaveHandlerThrewAnException = false;
 
 	std_vector!SerialisationStateForPlugin* dllPlugins = global.addressOf.cosaveAwarePlugins;
 
@@ -822,7 +905,7 @@ void saveCosaveSerial () nothrow @nogc
 			continue;
 		}
 
-		if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, cast(uint) pluginIndex))
+		if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, cast(uint) pluginIndex, 0))
 		{
 			++header.pluginsWithDataInCosaveCount;
 		}
@@ -846,6 +929,11 @@ void saveCosaveSerial () nothrow @nogc
 			cast(double) (time[3] - time[2]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[3] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
 		);
+	}
+
+	if (global.anyPluginCosaveHandlerThrewAnException)
+	{
+		global.addressOf.skseConsolePrint("S.L.A.C.K. | Errors occurred whilst saving the cosave! Please examine the previous lines of the console.");
 	}
 }
 
@@ -900,7 +988,7 @@ void saveCosaveParallel () nothrow @nogc
 
 		if ((plugin.stateSaver != null) & plugin.uniqueIDHasBeenAssigned)
 		{
-			if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, 0))
+			if (savePluginData(&global.saveLoad.serial.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, 0, 0))
 			{
 				++global.saveLoad.parallel.cosaveFilePluginsWithDataInCosaveCount;
 			}
@@ -940,6 +1028,7 @@ void saveCosaveParallel () nothrow @nogc
 
 	uint retryCount = 0;
 retry:
+	global.anyPluginCosaveHandlerThrewAnException.atomicStore!(MemoryOrder.rel)(false);
 	global.saveLoad.parallel.cosaveFileHead.atomicStore!(MemoryOrder.rel)(endOfData);
 
 	ubyte threadCount = global.configuration.parallelSavingThreadCount;
@@ -1079,6 +1168,11 @@ waitingForSaveToFinish:
 			cast(double) (time[3] - time[2]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[3] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
 		);
+	}
+
+	if (global.anyPluginCosaveHandlerThrewAnException.atomicLoad!(MemoryOrder.acq))
+	{
+		global.addressOf.skseConsolePrint("S.L.A.C.K. | Errors occurred whilst saving the cosave! Please examine the previous lines of the console.");
 	}
 }
 
@@ -1238,7 +1332,7 @@ dormant:
 				&global.saveLoad.parallel.cosaveAwarePluginsForSaving[cosaveAwarePluginIndex]
 			);
 
-			if (savePluginData!true(&threadStack.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, plugin.sparseIndex))
+			if (savePluginData!true(&threadStack.pluginState, plugin.uniqueID, plugin.stateSaver, &endOfData, plugin.sparseIndex, threadIndex))
 			{
 				uint sizeOfData = cast(uint) (endOfData - cosaveBufferPartition);
 				ubyte* dataInFile = global.saveLoad.parallel.cosaveFileHead.atomicFetchAdd!(MemoryOrder.acq_rel)(sizeOfData);
@@ -1502,6 +1596,7 @@ void loadCosaveSerial () nothrow @nogc
 		plugin.encounteredDataInLastLoadedSaveFile = false;
 	}
 
+	global.anyPluginCosaveHandlerThrewAnException = false;
 	bool firstPluginIsPending = true;
 
 	for (;;)
@@ -1589,6 +1684,41 @@ void loadCosaveSerial () nothrow @nogc
 
 		if (plugin.stateLoader != null)
 		{
+			enum string call =
+			q{
+				bool exceptionWasThrown = false;
+
+				if (global.configuration.flags & ConfigurationLongLived.Flags.errorFriendlyMode)
+				{
+					exceptionWasThrown = callThrowsException(global.addressOf.globalSerialisationProvider, plugin.stateLoader);
+				}
+				else
+				{
+					plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+				}
+			};
+
+			enum string exceptionErrorMessages =
+			q{
+				static if (__traits(compiles, strings.filePath))
+				{
+					global.addressOf.skseConsolePrint(
+						"S.L.A.C.K. | A SKSE plugin threw an exception whilst loading from the cosave. That plugin's current state may be invalid. | Plugin data offset: %u | Plugin: %s [%s]",
+						pluginDataOffset,
+						strings.name,
+						strings.filePath
+					);
+				}
+				else
+				{
+					global.addressOf.skseConsolePrint(
+						"S.L.A.C.K. | A SKSE plugin threw an exception whilst loading from the cosave. That plugin's current state may be invalid. | Plugin data offset: %u | Plugin: %s",
+						pluginDataOffset,
+						strings.name
+					);
+				}
+			};
+
 			if ((global.configuration.flags & ConfigurationLongLived.Flags.profileLoading).llvm_expect(0))
 			{
 				static void profiledStateLoaderCall (scope const(SerialisationStateForPlugin)* plugin)
@@ -1598,7 +1728,7 @@ void loadCosaveSerial () nothrow @nogc
 					ulong before = void;
 					RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &before);
 
-					plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+					mixin(call);
 
 					ulong after = void;
 					RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &after);
@@ -1606,6 +1736,15 @@ void loadCosaveSerial () nothrow @nogc
 					double duration = cast(double) (after - before) * global.performanceFrequencyMillisecondMultiplier;
 
 					auto strings = pluginStringsFromSerialisationStateIndex(plugin - global.addressOf.cosaveAwarePlugins.base);
+
+					if (exceptionWasThrown.llvm_expect(false))
+					{
+						global.anyPluginCosaveHandlerThrewAnException = true;
+
+						uint pluginDataOffset = cast(uint) (global.saveLoad.serial.pluginState.head - global.saveLoad.cosaveFileBuffer.base);
+
+						mixin(exceptionErrorMessages);
+					}
 
 					static if (__traits(compiles, strings.filePath))
 					{
@@ -1631,7 +1770,18 @@ void loadCosaveSerial () nothrow @nogc
 			}
 			else
 			{
-				plugin.stateLoader(global.addressOf.globalSerialisationProvider);
+				mixin(call);
+
+				if (exceptionWasThrown.llvm_expect(false))
+				{
+					global.anyPluginCosaveHandlerThrewAnException = true;
+
+					uint pluginDataOffset = cast(uint) (global.saveLoad.serial.pluginState.head - global.saveLoad.cosaveFileBuffer.base);
+
+					auto strings = pluginStringsFromSerialisationStateIndex(plugin - global.addressOf.cosaveAwarePlugins.base);
+
+					mixin(exceptionErrorMessages);
+				}
 			}
 		}
 
@@ -1644,12 +1794,29 @@ void loadCosaveSerial () nothrow @nogc
 		{
 			const(ubyte)* pluginData = cast(const(ubyte)*) pluginHeader + Cosave.DLLPluginHeader.sizeof;
 
-			global.addressOf.skseConsolePrint(
-				"S.L.A.C.K. | The SKSE plugin with a unique-ID of %08X has left some data in the cosave unread. This may indicate a bug in the plugin. | Offset relative to plugin data: %u | Plugin data size: %u",
-				pluginUniqueID,
-				global.saveLoad.serial.pluginState.head - pluginData,
-				nextPluginHeader - pluginData
-			);
+			auto strings = pluginStringsFromSerialisationStateIndex(plugin - global.addressOf.cosaveAwarePlugins.base);
+
+			static if (__traits(compiles, strings.filePath))
+			{
+				global.addressOf.skseConsolePrint(
+					"S.L.A.C.K. | The SKSE plugin with a unique-ID of %08X has left some data in the cosave unread. This may indicate a bug in the plugin. | Offset relative to plugin data: %u | Plugin data size: %u | Plugin: %s [%s]",
+					pluginUniqueID,
+					global.saveLoad.serial.pluginState.head - pluginData,
+					nextPluginHeader - pluginData,
+					strings.name,
+					strings.filePath
+				);
+			}
+			else
+			{
+				global.addressOf.skseConsolePrint(
+					"S.L.A.C.K. | The SKSE plugin with a unique-ID of %08X has left some data in the cosave unread. This may indicate a bug in the plugin. | Offset relative to plugin data: %u | Plugin data size: %u | Plugin: %s",
+					pluginUniqueID,
+					global.saveLoad.serial.pluginState.head - pluginData,
+					nextPluginHeader - pluginData,
+					strings.name
+				);
+			}
 		}
 
 		global.saveLoad.serial.pluginState.head = nextPluginHeader;
@@ -1679,6 +1846,11 @@ void loadCosaveSerial () nothrow @nogc
 			cast(double) (time[3] - time[2]) * global.performanceFrequencyMillisecondMultiplier,
 			cast(double) (time[3] - time[0]) * global.performanceFrequencyMillisecondMultiplier,
 		);
+	}
+
+	if (global.anyPluginCosaveHandlerThrewAnException)
+	{
+		global.addressOf.skseConsolePrint("S.L.A.C.K. | Errors occurred whilst loading the cosave! Please examine the previous lines of the console.");
 	}
 }
 

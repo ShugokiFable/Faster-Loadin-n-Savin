@@ -37,6 +37,7 @@ struct GlobalState
 	double performanceFrequencyMillisecondMultiplier = 0;
 	bool haveWarnedUserAboutNearlyReachingSaveFileSizeLimit;
 	bool haveSetUpSpecialSKSE64Providers;
+	bool anyPluginCosaveHandlerThrewAnException;
 	ubyte skseConsolePrintLock;
 
 	static if (shouldUseDLLNotifications)
