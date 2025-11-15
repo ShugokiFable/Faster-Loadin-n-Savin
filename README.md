@@ -9,6 +9,7 @@ This is a plugin for [SKSE64](https://skse.silverlock.org/) that aims to improve
 
 - Windows PowerShell 5.1 or [PowerShell 7-and-later](https://learn.microsoft.com/powershell/scripting/install/installing-powershell).
 - The [LDC D compiler](https://github.com/ldc-developers/ldc).
+- The [Clang C++ compiler](https://releases.llvm.org/).
 - A standard environment (e.g. the [MSVC Build Tools](https://learn.microsoft.com/cpp/build/building-on-the-command-line)) for targeting x86-64 Windows, specifically: having the Windows import libraries available via the library-path; having `rc` available via the `PATH`.
 - (Optional) [`7za`](https://www.7-zip.org/download.html) being available via the `PATH`, for packaging the built plugins.
 
@@ -61,6 +62,8 @@ Thus, a great deal of this repository is my own non-standard-library, found in `
 - [`mod/slack_mod`](mod/slack_mod): This module implements the actual plugin proper.
 	- [`mod/slack_mod/configuration.d`](mod/slack_mod/configuration.d): Defines the configurable state for the plugin.
 	- [`mod/slack_mod/entrypoint.d`](mod/slack_mod/entrypoint.d): The entrypoint for the plugin's DLL, as well as any DLL exports, and the assert handler for debug builds.
+	- [`mod/slack_mod/exception_wrapper.cpp`](mod/slack_mod/exception_wrapper.cpp): A small wrapper for calling a function and catching any exceptions it may throw.
+	- [`mod/slack_mod/exception_wrapper.d`](mod/slack_mod/exception_wrapper.d): D bindings for the C++ exception wrapper.
 	- [`mod/slack_mod/global.d`](mod/slack_mod/global.d): All the global state for the plugin, traceable from once place, and the vectored-exception-handler.
 	- [`mod/slack_mod/limits.d`](mod/slack_mod/limits.d): Provides the definitions for any hardcoded limits for the plugin's functionality.
 	- [`mod/slack_mod/Save&LoadAcceleratorForSKSECosaves.def`](mod/slack_mod/Save&LoadAcceleratorForSKSECosaves.def): Defines the exports of the plugin's DLL.

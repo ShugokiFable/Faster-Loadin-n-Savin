@@ -67,7 +67,7 @@ try
 	$DVersionFlags = $DVersions.ForEach{"--d-version"; $_}
 
 	$SourceBase = "$BuildRelativeSource"
-	$SourceFiles = @(
+	$SourceFiles = $(
 		'game/package.d'
 		'skse64/dll_plugins.d'
 		'skse64/serialisation.d'
@@ -97,6 +97,7 @@ try
 		'slack_common/large_low_overhead_buffer.d'
 		'slack_mod/limits.d'
 		'slack_mod/configuration.d'
+		if (-not $Unittest) {'slack_mod/exception_wrapper.d'}
 		'slack_mod/save_load.d'
 		'slack_mod/setup.d'
 		'slack_mod/global.d'
@@ -109,6 +110,7 @@ try
 		'User32.lib'
 		'Ole32.lib'
 		'shell32.lib'
+		'vcruntime.lib'
 	)
 
 	$DLLs = @(
@@ -176,6 +178,7 @@ try
 			$DVersionFlags = $Using:DVersionFlags
 			$ImportedLibraries = $Using:ImportedLibraries
 			$Optimisation = $Using:Optimisation
+			$SourceBase = $Using:SourceBase
 			$SourceFiles = $Using:SourceFiles
 			$TargetCPU = $Using:TargetCPU
 			$TargetTriple = $Using:TargetTriple
@@ -210,6 +213,18 @@ try
 		{
 			rc /nologo /8 /fo "$Base/$($DLL.Name).res" $DLL.ResourceFile
 
+			clang++ `
+				-c `
+				-o "$Base/exception_wrapper.obj" `
+				"--target=$TargetTriple" `
+				"-march=$TargetCPU" `
+				-flto=thin `
+				-g `
+				-gcodeview `
+				-emit-llvm `
+				$Optimisation `
+				"$SourceBase/slack_mod/exception_wrapper.cpp"
+
 			lld-link `
 				/out:"$Base/$($DLL.Name).dll" `
 				/dll `
@@ -221,6 +236,7 @@ try
 				/debug:full `
 				/opt:ref `
 				"$Base/$($DLL.Name).res" `
+				"./$Base/exception_wrapper.obj" `
 				"./$Base/$($DLL.Name)$CompilationSuffix" `
 				$ImportedLibraries `
 				$DLL.ImportedLibraries
