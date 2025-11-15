@@ -1,6 +1,19 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.3.0 (2025-11-15)
+
+The eleventh release of this plugin, the changes are as follows:
+- A new error-friendly mode has been added: when enabled, S.L.A.C.K. will catch and log exceptions thrown by SKSE plugins' cosave handlers, what like SKSE's original code does. \
+This should help to prevent the game from crashing when saving or loading the game, in the presence of SKSE plugins with bugs. \
+This new mode is enabled by default.
+- S.L.A.C.K. no longer logs to the console when it works around a bug in STB Widgets, to avoid logspam when saving the game.
+- A potential deleterious effect on start-up performance, when the `WorkAroundThirdPartyBugs` setting is enabled, has been reduced.
+
+---
+
+The song recommendation for this release is [ドロドロ's cover of "スターダストメドレー" by きさら](https://www.youtube.com/watch?v=MqDulIt9Pjo).
+
 ## Version 1.2.0 (2025-11-13)
 
 The tenth release of this plugin, the changes are as follows:
