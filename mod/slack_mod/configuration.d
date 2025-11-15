@@ -34,6 +34,7 @@ struct ConfigurationLongLived
 		workAroundThirdPartyBugs = 1 << 6,
 		profileSaving = 1 << 7,
 		profileLoading = 1 << 8,
+		errorFriendlyMode = 1 << 9,
 	}
 
 	void setToDefault () scope @safe pure nothrow @nogc
@@ -44,6 +45,7 @@ struct ConfigurationLongLived
 			| Flags.logSaveTimingsToConsole
 			| Flags.logLoadTimingsToConsole
 			| Flags.workAroundThirdPartyBugs
+			| Flags.errorFriendlyMode
 		);
 
 		this.parallelSavingThreadCount = 0;
@@ -182,6 +184,7 @@ void parseINIConfiguration (
 	{
 		mixin(iniKey!("acceleratesaving", q{conditionallyMutateMask(configuration.flags, F.accelerateSaving, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("accelerateloading", q{conditionallyMutateMask(configuration.flags, F.accelerateLoading, iniValueAsBoolean(a.value, true));}));
+		mixin(iniKey!("errorfriendlymode", q{conditionallyMutateMask(configuration.flags, F.errorFriendlyMode, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("logsavetimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logSaveTimingsToConsole, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("logloadtimingstoconsole", q{conditionallyMutateMask(configuration.flags, F.logLoadTimingsToConsole, iniValueAsBoolean(a.value, true));}));
 		mixin(iniKey!("workaroundthirdpartybugs", q{conditionallyMutateMask(configuration.flags, F.workAroundThirdPartyBugs, iniValueAsBoolean(a.value, true));}));
