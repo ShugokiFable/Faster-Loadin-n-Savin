@@ -364,23 +364,8 @@ struct SpecialSaving
 
 		if (isImpossibleAddress)
 		{
-			static if (__traits(compiles, DLLPlugin.filePath))
-			{
-				global.addressOf.skseConsolePrint(
-					"S.L.A.C.K. | A SKSE plugin has called `WriteRecordData` with an invalid memory address. | data: %016X | size: %u | Plugin: STB_Widgets [STB_Widgets.dll]",
-					data,
-					size
-				);
-			}
-			else
-			{
-				global.addressOf.skseConsolePrint(
-					"S.L.A.C.K. | A SKSE plugin has called `WriteRecordData` with an invalid memory address. | data: %016X | size: %u | Plugin: STB_Widgets",
-					data,
-					size
-				);
-			}
-
+			/+ We should consider logging something here,
+			   if anything other than STB Widgets needs this special code. +/
 			return handleInvalidCall(data, size);
 		}
 
@@ -396,27 +381,8 @@ struct SpecialSaving
 
 		if (isImpossibleAddress)
 		{
-			static if (__traits(compiles, DLLPlugin.filePath))
-			{
-				global.addressOf.skseConsolePrint(
-					"S.L.A.C.K. | A SKSE plugin has called `WriteRecord` with an invalid memory address. | signature: %08X | schemaVersion: %08X | data: %016X | size: %u | Plugin: STB_Widgets [STB_Widgets.dll]",
-					signature,
-					schemaVersion,
-					data,
-					size
-				);
-			}
-			else
-			{
-				global.addressOf.skseConsolePrint(
-					"S.L.A.C.K. | A SKSE plugin has called `WriteRecord` with an invalid memory address. | signature: %08X | schemaVersion: %08X | data: %016X | size: %u | Plugin: STB_Widgets",
-					signature,
-					schemaVersion,
-					data,
-					size
-				);
-			}
-
+			/+ We should consider logging something here,
+			   if anything other than STB Widgets needs this special code. +/
 			return handleInvalidCall(data, size);
 		}
 
