@@ -1381,11 +1381,36 @@ version (Windows)
 	}
 
 
+	struct FILETIME
+	{
+		uint dwLowDateTime;
+		uint dwHighDateTime;
+	}
+
+
 	struct KSYSTEM_TIME
 	{
 		uint LowPart;
 		int High1Time;
 		int High2Time;
+	}
+
+
+	struct WIN32_FIND_DATAA
+	{
+		uint dwFileAttributes;
+		FILETIME ftCreationTime;
+		FILETIME ftLastAccessTime;
+		FILETIME ftLastWriteTime;
+		uint nFileSizeHigh;
+		uint nFileSizeLow;
+		uint dwReserved0;
+		uint dwReserved1;
+		char[MAX_PATH] cFileName;
+		char[14] cAlternateFileName;
+		uint dwFileType;
+		uint dwCreatorType;
+		ushort wFinderFlags;
 	}
 
 
