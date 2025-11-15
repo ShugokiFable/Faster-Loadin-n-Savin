@@ -27,6 +27,7 @@ __gshared GlobalState global;
 
 enum bool shouldUseDLLNotifications = targetedGameVersion <= 0x01_06_161_0;
 enum bool hookingSKSEInitialiseViaCall = targetedGameArchetype != GameArchetype.se && targetedGameArchetype != GameArchetype.ae353;
+enum bool observingPluginFileNameViaCall = targetedGameVersion < 0x01_06_000_0;
 
 
 struct GlobalState
@@ -38,6 +39,7 @@ struct GlobalState
 	bool haveWarnedUserAboutNearlyReachingSaveFileSizeLimit;
 	bool haveSetUpSpecialSKSE64Providers;
 	bool anyPluginCosaveHandlerThrewAnException;
+	SpecialPlugin currentSpecialPluginBeingLoaded;
 	ubyte skseConsolePrintLock;
 
 	static if (shouldUseDLLNotifications)
@@ -71,6 +73,15 @@ struct ResolvedAddresses
 	else
 	{
 		ubyte* skseInitialiseTailReturn;
+	}
+
+	static if (observingPluginFileNameViaCall)
+	{
+		ubyte* sksePluginFilePathCall;
+	}
+	else
+	{
+		DLLPlugin** sksePluginBeingLoaded;
 	}
 
 	ubyte* supplySKSEProviderLEA;
@@ -125,6 +136,13 @@ struct DynamicallyLinked
 			this.NtAllocateVirtualMemoryEx = null;
 		}
 	}
+}
+
+
+enum SpecialPlugin : ubyte
+{
+	none,
+	stbWidgets
 }
 
 

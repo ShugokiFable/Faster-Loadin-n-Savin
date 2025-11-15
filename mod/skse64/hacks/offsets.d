@@ -9,11 +9,13 @@ import game;
 enum VersionedOffsets versionedOffsets = {
 	globalSKSE64Provider: {ae: 0x0000b480, ae1130: 0x0000b468, ae640: 0x0000b470, ae353: 0x0000b438, se: 0x0000dad8, vr: 0x0000de20, gog: 0x0000b140, gog659: 0x0000b488}, /+ .rdata +/
 	       loadedPlugins: {ae: 0x00001ae0, ae1130: 0x00001ae0, ae640: 0x00001ae0, ae353: 0x00001ae0, se: 0x00001a08, vr: 0x00014178, gog: 0x00001ae0, gog659: 0x00001ae0}, /+ .data +/
+	   pluginBeingLoaded: {ae: 0x0000fae8, ae1130: 0x0000fae8, ae640: 0x0000faa8, ae353: 0x0000faa8, se: 0x00000000, vr: 0x00000000, gog: 0x0000f928, gog659: 0x0000fa98}, /+ .data +/
 	    loadedPluginSize: {ae: 0x000003b0, ae1130: 0x000003b0, ae640: 0x000003b0, ae353: 0x000003b0, se: 0x00000030, vr: 0x00000030, gog: 0x000003b0, gog659: 0x000003b0}, /+ constant +/
 	      cosaveSavePath: {ae: 0x00001b18, ae1130: 0x00001b18, ae640: 0x00001b18, ae353: 0x00001b18, se: 0x00001b78, vr: 0x000141e0, gog: 0x00001b18, gog659: 0x00001b18}, /+ .data +/
 	  cosaveAwarePlugins: {ae: 0x00010d88, ae1130: 0x00010d88, ae640: 0x00010d40, ae353: 0x00010d30, se: 0x000123a8, vr: 0x000141c8, gog: 0x00010bd8, gog659: 0x00010d30}, /+ .data +/
 	      initialiseCall: {ae: 0x00088c44, ae1130: 0x00088c44, ae640: 0x00088a84, ae353: 0x00000000, se: 0x00000000, vr: 0x0009c140, gog: 0x0008afb4, gog659: 0x00088c54}, /+ .text +/
 	initialiseTailReturn: {ae: 0x00000000, ae1130: 0x00000000, ae640: 0x00000000, ae353: 0x00088bb6, se: 0x00087227, vr: 0x00000000, gog: 0x00000000, gog659: 0x00000000}, /+ .text +/
+	  pluginFilePathCall: {ae: 0x00000000, ae1130: 0x00000000, ae640: 0x00000000, ae353: 0x00000000, se: 0x0007f809, vr: 0x0009490c, gog: 0x00000000, gog659: 0x00000000}, /+ .text +/
 	   supplyProviderLEA: {ae: 0x00080fa4, ae1130: 0x00080fa4, ae640: 0x00080de4, ae353: 0x00080dc4, se: 0x0007fc24, vr: 0x00094e24, gog: 0x00082fb4, gog659: 0x00080fa4}, /+ .text +/
 	        createCosave: {ae: 0x000874f0, ae1130: 0x000874f0, ae640: 0x00087330, ae353: 0x000871f0, se: 0x000854e0, vr: 0x0009af50, gog: 0x00089820, gog659: 0x00087510}, /+ .text +/
 	       restoreCosave: {ae: 0x00087700, ae1130: 0x00087700, ae640: 0x00087540, ae353: 0x00087400, se: 0x000856f0, vr: 0x0009b230, gog: 0x00089a30, gog659: 0x00087720}, /+ .text +/
@@ -57,11 +59,13 @@ struct VersionedOffsets
 {
 	VersionedOffset globalSKSE64Provider;
 	VersionedOffset loadedPlugins;
+	VersionedOffset pluginBeingLoaded;
 	VersionedOffset loadedPluginSize;
 	VersionedOffset cosaveSavePath;
 	VersionedOffset cosaveAwarePlugins;
 	VersionedOffset initialiseCall;
 	VersionedOffset initialiseTailReturn;
+	VersionedOffset pluginFilePathCall;
 	VersionedOffset supplyProviderLEA;
 	VersionedOffset createCosave;
 	VersionedOffset restoreCosave;

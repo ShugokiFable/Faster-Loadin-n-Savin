@@ -30,6 +30,7 @@ import slack_mod.limits;
 import slack_mod.save_load;
 
 import skse64.dll_plugins;
+import skse64.file_handling;
 import skse64.serialisation;
 import skse64.hacks.versioning;
 import skse64.hacks.offsets;
@@ -445,6 +446,12 @@ allocatedSKSEskseAdjacentMemory:
 
 	global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
 	global.addressOf.loadedSKSEPlugins = cast(std_vector!DLLPlugin*) (sections.data.ptr + skse64Offsets.loadedPlugins);
+
+	static if (!observingPluginFileNameViaCall)
+	{
+		global.addressOf.sksePluginBeingLoaded = cast(DLLPlugin**) (sections.data.ptr + skse64Offsets.pluginBeingLoaded);
+	}
+
 	global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
 	global.addressOf.supplySKSEProviderLEA = sections.text.ptr + skse64Offsets.supplyProviderLEA;
 	global.addressOf.createSKSECosave = sections.text.ptr + skse64Offsets.createCosave;
@@ -452,6 +459,11 @@ allocatedSKSEskseAdjacentMemory:
 	global.addressOf.createSKSECosaveCall = sections.text.ptr + skse64Offsets.createCosaveCall;
 	global.addressOf.restoreSKSECosaveCall = sections.text.ptr + skse64Offsets.restoreCosaveCall;
 	global.addressOf.skseConsolePrint = cast(typeof(global.addressOf.skseConsolePrint)) (sections.text.ptr + skse64Offsets.consolePrint);
+
+	static if (observingPluginFileNameViaCall)
+	{
+		global.addressOf.sksePluginFilePathCall = sections.text.ptr + skse64Offsets.pluginFilePathCall;
+	}
 
 	static if (hookingSKSEInitialiseViaCall)
 	{
@@ -622,6 +634,29 @@ allocatedSKSEskseAdjacentMemory:
 		& ((global.configuration.flags & Config.workAroundThirdPartyBugs) != 0)
 	)
 	{
+		static if (observingPluginFileNameViaCall)
+		{
+			const(ubyte)* sksePluginFilePathCallTarget = x86TargetOf!5(global.addressOf.sksePluginFilePathCall);
+
+			c = c.alignUpTo(16);
+			ubyte* sksePluginNameObserver = c;
+
+			*c++ = 0x51;                                                          /+ push rcx +/
+			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 32;          /+ sub rsp, 32 +/
+			c.writeDirectCallOf(sksePluginFilePathCallTarget); c += 5;            /+ call sksePluginFilePathCallTarget +/
+			*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 32;          /+ add rsp, 32 +/
+			*c++ = 0x59;                                                          /+ pop rcx +/
+			c += c.writeJumpTo(cast(const(ubyte)*) &observeFileNameOfSKSEPlugin); /+ jmp observeFileNameOfSKSEPlugin +/
+
+			withCodeRegionMadeWritable(
+				global.addressOf.sksePluginFilePathCall,
+				5,
+				(scope ubyte* a, size_t s) {a.writeDirectCallOf(sksePluginNameObserver);}
+			);
+
+			FlushInstructionCache(thisProcess, global.addressOf.sksePluginFilePathCall, 5);
+		}
+
 		c = c.alignUpTo(16);
 		ubyte* skse64ProvisionHijack = c;
 
@@ -737,6 +772,53 @@ void setUpAfterInitialisationOfSKSE () nothrow @nogc
 }
 
 
+pragma(inline, true)
+SpecialPlugin specialPluginFromDLLFileName () (scope const(char)* name, size_t length) nothrow @nogc
+{
+	/+ If another plugin is added here, remember to update the logging
+	   in the `SpecialSaving` implementations. +/
+
+	if (length == 0)
+	{
+		return SpecialPlugin.none;
+	}
+
+	const(char)* end = name + length;
+
+	for (; end > name;)
+	{
+		--end;
+		if (*end == '.') goto dllNameFromDot;
+	}
+
+	return SpecialPlugin.none;
+dllNameFromDot:
+	size_t baseNameLength = end - name;
+
+	if (baseNameLength == 11)
+	{
+		if (caseInsensitiveASCIIEquality!true(name, "stb_widgets".ptr, 11))
+		{
+			return SpecialPlugin.stbWidgets;
+		}
+	}
+
+	return SpecialPlugin.none;
+}
+
+
+static if (observingPluginFileNameViaCall)
+{
+	pragma(inline, false)
+	void observeFileNameOfSKSEPlugin (scope const(FileEnumerator)* fileEnumerator) nothrow @nogc
+	{
+		const(char)* name = fileEnumerator.findData.cFileName.ptr;
+		size_t length = strlen(name);
+		global.currentSpecialPluginBeingLoaded = specialPluginFromDLLFileName(name, length);
+	}
+}
+
+
 pragma(inline, false)
 void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulong rdx) nothrow @nogc
 {
@@ -749,73 +831,54 @@ void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulon
 		HMODULE dll = *cast(HMODULE*) rdx;
 	}
 
-	wchar[MAX_PATH] path = void;
-	uint pathLength = GetModuleFileNameW(dll, path.ptr, path.length);
-
 	SKSE64Provider* provider = global.addressOf.globalSKSE64Provider;
 
-	if (pathLength != 0)
+	static if (observingPluginFileNameViaCall)
 	{
-		wchar* end = path.ptr + pathLength;
+		SpecialPlugin currentSpecialPlugin = global.currentSpecialPluginBeingLoaded;
+	}
+	else
+	{
+		const(DLLPlugin)* pluginBeingLoaded = *global.addressOf.sksePluginBeingLoaded;
+		const(std_string)* dllName = &pluginBeingLoaded.filePath;
+		SpecialPlugin currentSpecialPlugin = specialPluginFromDLLFileName(dllName.base, dllName.size);
+	}
 
-		for (; end > path.ptr;)
+	final switch (currentSpecialPlugin)
+	{
+	case SpecialPlugin.none:
+		break;
+	case SpecialPlugin.stbWidgets:
+		/+ I can't find a useful version-number in STB_Widgets.dll,
+		   so I'm just going to pick offsets out of a hat and use them as a fingerprint. +/
+
+		PESections sections = void;
+		if (((findSectionsOfPE64(dll, &sections) & 1) == 0) & (sections.text.length >= 0x0005f302))
 		{
-			--end;
-			if (*end == '.') goto dllNameFromDot;
-		}
+			ulong f0 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0005f2fa));
+			ulong f1 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0001be1a));
 
-		goto useProvider;
-	dllNameFromDot:
-		wchar* baseName = end;
-
-		for (; baseName > path.ptr;)
-		{
-			--baseName;
-			if (*baseName == '\\') goto dllNameFromSlash;
-		}
-
-		goto useProvider;
-	dllNameFromSlash:
-		++baseName;
-		uint baseNameLength = cast(uint) (end - baseName);
-
-		/+ If another plugin is added here, remember to update the logging
-		   in the `SpecialSaving` implementations. +/
-
-		if (baseNameLength == 11)
-		{
-			if (caseInsensitiveASCIIEquality!true(baseName, "stb_widgets"w.ptr, 11))
+			if ((f0 == 0x480011F64F058B48) & (f1 == 0xE8001331370D8D48)) /+ v1.9 +/
 			{
-				/+ I can't find a useful version-number in STB_Widgets.dll,
-				   so I'm just going to pick offsets out of a hat and use them as a fingerprint. +/
-
-				PESections sections = void;
-				if (((findSectionsOfPE64(dll, &sections) & 1) == 0) & (sections.text.length >= 0x0005f302))
-				{
-					ulong f0 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0005f2fa));
-					ulong f1 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0001be1a));
-
-					if ((f0 == 0x480011F64F058B48) & (f1 == 0xE8001331370D8D48)) /+ v1.9 +/
-					{
-					specialSTBWidgetsVersion:
-						provider = setUpSpecialSKSE64Providers;
-						goto useProvider;
-					}
-					else if ((f0 == 0x245C8D4C4824448B) & (f1 == 0xDA590F41F328247C)) /+ v1.8 +/
-					{
-						goto specialSTBWidgetsVersion;
-					}
-					else if ((f0 == 0x0F4875C0840011F0) & (f1 == 0x015C80110F001389)) /+ v1.7 +/
-					{
-						goto specialSTBWidgetsVersion;
-					}
-					else if ((f0 == 0x4404506348018B48) & (f1 == 0x00000028B9402474)) /+ v1.6 +/
-					{
-						goto specialSTBWidgetsVersion;
-					}
-				}
+			specialSTBWidgetsVersion:
+				provider = setUpSpecialSKSE64Providers;
+				goto useProvider;
+			}
+			else if ((f0 == 0x245C8D4C4824448B) & (f1 == 0xDA590F41F328247C)) /+ v1.8 +/
+			{
+				goto specialSTBWidgetsVersion;
+			}
+			else if ((f0 == 0x0F4875C0840011F0) & (f1 == 0x015C80110F001389)) /+ v1.7 +/
+			{
+				goto specialSTBWidgetsVersion;
+			}
+			else if ((f0 == 0x4404506348018B48) & (f1 == 0x00000028B9402474)) /+ v1.6 +/
+			{
+				goto specialSTBWidgetsVersion;
 			}
 		}
+
+		break;
 	}
 useProvider:
 	__ir_pure!(`call void asm sideeffect inteldialect "", "{rcx},{rdx}" (ptr %0, i64 %1)`, void)(
