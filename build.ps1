@@ -70,6 +70,7 @@ try
 	$SourceFiles = $(
 		'game/package.d'
 		'skse64/dll_plugins.d'
+		'skse64/file_handling.d'
 		'skse64/serialisation.d'
 		'skse64/hacks/versioning.d'
 		'skse64/hacks/offsets.d'
