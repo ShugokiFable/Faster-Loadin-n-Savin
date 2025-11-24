@@ -489,6 +489,42 @@ void performanceCriticalBlit (
 }
 
 
+void allowPluginsToSaveWhenSKSEIsNotSaving () ()
+{
+	/+ Some SKSE plugins mistakenly call SKSE's saving routines when SKSE is not saving.
+	   So to try and avert disaster when that happens, we'll put up some of the serial-saving state. +/
+
+	global.anyPluginCosaveHandlerThrewAnException = false;
+
+	ubyte* base = global.saveLoad.cosaveFileBuffer.base;
+	ubyte* endOfData = base + Cosave.Header.sizeof;
+
+	global.saveLoad.serial.pluginState.head = endOfData;
+
+	ubyte* startOfPluginData = global.saveLoad.serial.pluginState.head;
+	global.saveLoad.serial.pluginState.head += Cosave.DLLPluginHeader.sizeof;
+
+	Unaligned!(Cosave.DLLPluginHeader)* currentPluginHeader = unaligned(cast(Cosave.DLLPluginHeader*) startOfPluginData);
+
+	global.saveLoad.serial.pluginState.currentRecordHeader = unaligned(cast(Cosave.RecordHeader*) &currentPluginHeader[1]);
+	global.saveLoad.serial.pluginState.recordCount = 0;
+}
+
+
+void allowPluginsToLoadWhenSKSEIsNotLoading () ()
+{
+	/+ Similarly, some SKSE plugins mistakenly call SKSE's loading routines when SKSE is not loading.
+	   So to try and avert disaster when that happens, we'll put up some of the serial-loading state. +/
+
+	global.anyPluginCosaveHandlerThrewAnException = false;
+
+	global.saveLoad.serial.pluginState.head = global.saveLoad.cosaveFileBuffer.base + Cosave.Header.sizeof;
+	global.saveLoad.serial.pluginState.tail = global.saveLoad.serial.pluginState.head;
+	global.saveLoad.serial.pluginState.currentRecordHeader = unaligned(&global.saveLoad.nullCosaveRecordHeader);
+	global.saveLoad.serial.pluginState.recordCount = 0;
+}
+
+
 /+ The serialisation-state array is a sparse-array wherein the index
    of the serialisation-state corresponds to the index of the parent DLL-plugin,
    but biased by one, because the serialisation-state for SKSE itself
@@ -909,6 +945,8 @@ void saveCosaveSerial () nothrow @nogc
 		}
 	}
 
+	allowPluginsToSaveWhenSKSEIsNotSaving;
+
 	RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &time[2]);
 
 	if (!writeCosaveToFile(cosaveFile, base, endOfData, stringBuffer))
@@ -1143,6 +1181,8 @@ waitingForSaveToFinish:
 	}
 
 	header.pluginsWithDataInCosaveCount = global.saveLoad.parallel.cosaveFilePluginsWithDataInCosaveCount.atomicLoad!(MemoryOrder.acq);
+
+	allowPluginsToSaveWhenSKSEIsNotSaving;
 
 	RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &time[2]);
 
@@ -1832,6 +1872,8 @@ void loadCosaveSerial () nothrow @nogc
 			plugin.stateLoader(global.addressOf.globalSerialisationProvider);
 		}
 	}
+
+	allowPluginsToLoadWhenSKSEIsNotLoading;
 
 	RtlQueryPerformanceCounter(cast(LARGE_INTEGER*) &time[3]);
 

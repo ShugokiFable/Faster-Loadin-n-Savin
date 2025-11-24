@@ -444,6 +444,9 @@ allocatedSKSEskseAdjacentMemory:
 		}
 	}
 
+	allowPluginsToSaveWhenSKSEIsNotSaving;
+	allowPluginsToLoadWhenSKSEIsNotLoading;
+
 	global.addressOf.skseCosaveSavePath = cast(std_string*) (sections.data.ptr + skse64Offsets.cosaveSavePath);
 	global.addressOf.loadedSKSEPlugins = cast(std_vector!DLLPlugin*) (sections.data.ptr + skse64Offsets.loadedPlugins);
 
