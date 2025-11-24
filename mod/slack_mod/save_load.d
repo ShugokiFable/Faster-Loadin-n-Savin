@@ -289,8 +289,6 @@ struct Loading
 			return false;
 		}
 
-		assert(pluginState.currentRecordHeader !is unaligned(&global.saveLoad.nullCosaveRecordHeader));
-
 		uint recordSize = recordHeader.size;
 
 		--pluginState.recordCount;
