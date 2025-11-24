@@ -849,36 +849,16 @@ void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulon
 	case SpecialPlugin.none:
 		break;
 	case SpecialPlugin.stbWidgets:
-		/+ I can't find a useful version-number in STB_Widgets.dll,
-		   so I'm just going to pick offsets out of a hat and use them as a fingerprint. +/
-
-		PESections sections = void;
-		if (((findSectionsOfPE64(dll, &sections) & 1) == 0) & (sections.text.length >= 0x0005f302))
-		{
-			ulong f0 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0005f2fa));
-			ulong f1 = *unaligned(cast(const(ulong)*) (sections.text.ptr + 0x0001be1a));
-
-			if ((f0 == 0x480011F64F058B48) & (f1 == 0xE8001331370D8D48)) /+ v1.9 +/
-			{
-			specialSTBWidgetsVersion:
-				provider = setUpSpecialSKSE64Providers;
-				goto useProvider;
-			}
-			else if ((f0 == 0x245C8D4C4824448B) & (f1 == 0xDA590F41F328247C)) /+ v1.8 +/
-			{
-				goto specialSTBWidgetsVersion;
-			}
-			else if ((f0 == 0x0F4875C0840011F0) & (f1 == 0x015C80110F001389)) /+ v1.7 +/
-			{
-				goto specialSTBWidgetsVersion;
-			}
-			else if ((f0 == 0x4404506348018B48) & (f1 == 0x00000028B9402474)) /+ v1.6 +/
-			{
-				goto specialSTBWidgetsVersion;
-			}
-		}
-
-		break;
+		/+ There used to be some version-detection logic here,
+		   because I didn't want to set-up the special provider for newer versions
+		   of STB Widgets that shouldn't need it, but as I can't find
+		   a useful version-number in STB_Widgets.dll it relied on fingerprinting
+		   bytes of code, which proved unreliable for some users.
+		   (Relocations, perhaps? Other mods injecting code? x86 emulation on ARM64? Who knows?)
+		   So now the the special provider is set-up unconditionally.
+		   I'll revisit this if the STB Widgets' team ever decide to update their version-number. +/
+		provider = setUpSpecialSKSE64Providers;
+		goto useProvider;
 	}
 useProvider:
 	__ir_pure!(`call void asm sideeffect inteldialect "", "{rcx},{rdx}" (ptr %0, i64 %1)`, void)(
