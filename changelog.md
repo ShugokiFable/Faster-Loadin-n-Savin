@@ -1,6 +1,17 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.3.1 (2025-11-25)
+
+The twelfth release of this plugin, the changes are as follows:
+- The version detection for a workaround for a bug in STB Widgets has been removed, and the workaround is now applied unconditionally for improved reliability.
+- The game should no longer crash when SKSE plugins call SKSE's saving routines when the game is not being saved, nor when SKSE's loading routines are called when a save is not being loaded.
+
+---
+
+The song recommendation for this release is ["Passacaglia - Carmina Luminum Et Siderum" by Forgotten Melody](https://www.youtube.com/watch?v=Px6COpFeZXA). \
+(This release was delayed by an hour-and-a-half as I had to listen to the whole album, and then relisten to a few songs, to decide which song to recommend.)
+
 ## Version 1.3.0 (2025-11-15)
 
 The eleventh release of this plugin, the changes are as follows:
