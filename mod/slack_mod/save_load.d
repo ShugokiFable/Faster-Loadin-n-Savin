@@ -575,10 +575,18 @@ auto pluginStringsFromSerialisationStateIndex () (size_t sparseIndex) nothrow @n
 pragma(inline, true)
 HANDLE createCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 {
-	const(std_string)* cosavePath = global.addressOf.skseCosaveSavePath;
+	const(char)* cosavePath = global.addressOf.skseCosaveSavePath.base;
+
+	/+ There are non-error scenarios wherein the cosave path can be empty,
+	   such as when the `ReloadScript` console command is invoked.
+	   I doubt it will ever be null, but I shan't chance it. +/
+	if (cosavePath == null || *cosavePath == '\0')
+	{
+		return INVALID_HANDLE_VALUE;
+	}
 
 	HANDLE cosaveFile = CreateFileA(
-		cosavePath.base,
+		cosavePath,
 		GENERIC_READ | GENERIC_WRITE,
 		FILE_SHARE_READ,
 		null,
@@ -1461,10 +1469,16 @@ bool growCosaveFileBufferThreadSafely (scope const(ubyte)* requiredCommit) @trus
 pragma(inline, true)
 HANDLE openCosaveFile (scope wchar[] stringBuffer) @trusted nothrow @nogc
 {
-	const(std_string)* cosavePath = global.addressOf.skseCosaveSavePath;
+	const(char)* cosavePath = global.addressOf.skseCosaveSavePath.base;
+
+	/+ Refer to the comment in `createCosaveFile` as for why we special-case empty paths. +/
+	if (cosavePath == null || *cosavePath == '\0')
+	{
+		return INVALID_HANDLE_VALUE;
+	}
 
 	HANDLE cosaveFile = CreateFileA(
-		cosavePath.base,
+		cosavePath,
 		GENERIC_READ,
 		FILE_SHARE_READ,
 		null,
