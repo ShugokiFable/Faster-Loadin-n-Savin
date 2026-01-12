@@ -1,6 +1,15 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.3.2 (2026-01-12)
+
+The thirteenth release of this plugin, the changes are as follows:
+- Spurious error-message dialogs no longer occur when the `ReloadScript` console command is used.
+
+---
+
+The song recommendation for this release is ["夜間飛行" by 発熱巫女〜ず, featuring 舞花](https://www.youtube.com/watch?v=12z-7u9Ua8c).
+
 ## Version 1.3.1 (2025-11-25)
 
 The twelfth release of this plugin, the changes are as follows:
