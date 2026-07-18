@@ -67,6 +67,8 @@ If you would like to eke out even more speed for saving the game, the experiment
 This plugin should be compatible with just about everything, with the exception of other plugins that patch or hook SKSE's code, potentially.
 In practice, patching and hooking SKSE itself is very rare.
 
+This plugin is entirely [b]standalone[/b]: it does [b]not[/b] require NextGen Disk Cache, and NextGen Disk Cache does not require it. The two accelerate different things (SKSE cosaves here, game asset files there) and simply complement each other; with NextGen Disk Cache 1.2.1 or later they are fully compatible.
+
 To answer a frequent question: this plugin is compatible with [url=https://www.nexusmods.com/skyrimspecialedition/mods/122343]Skyrim Save System Overhaul (SSSO)[/url].
 
 [size=4][b][u]What this plugin does[/u][/b][/size]
@@ -126,6 +128,7 @@ The optimisation this plugin makes is similarly obvious: the file is read into m
 
 [size=4][b][u]Source-Code[/u][/b][/size]
 The source-code for this plugin is available at [url=https://github.com/just-harry/save-load-accelerator-for-skse-cosaves]https://github.com/just-harry/save-load-accelerator-for-skse-cosaves[/url].
+The source-code for this 1.4.0 release specifically is available at [url=https://github.com/ShugokiFable/save-load-accelerator-for-skse-cosaves]the maintenance fork[/url].
 
 [size=4][b][u]Honourable Mentions[/u][/b][/size]
 On 2024-10-04 (over a year ago), GitHub user "intorr" submitted a [url=https://github.com/ianpatt/skse64/pull/44]pull-request to the SKSE project[/url] which speeds up the saving and loading of SKSE cosaves, via a delightfully simple implementation of a buffered file-stream.
