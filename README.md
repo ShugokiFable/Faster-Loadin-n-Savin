@@ -1,6 +1,8 @@
 
 # Save & Load Accelerator for SKSE Cosaves
 
+> **Fork note (1.4.0):** this repository is a maintenance fork of [just-harry/save-load-accelerator-for-skse-cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), which is the original and upstream source. Version 1.4.0 adds crash-safe atomic cosave replacement, buffered sequential loading, an x86-64-v3 High-End build (with a Universal v2 fallback), and confirmed compatibility with NextGen Disk Cache 1.2.1+. See [`changelog.md`](changelog.md). All credit for the plugin itself remains with Harry Gillanders ("just-harry"); everything remains 0BSD-licensed.
+
 This is a plugin for [SKSE64](https://skse.silverlock.org/) that aims to improve the performance of saving and loading SKSE cosave files.
 
 ## Building
@@ -9,14 +11,15 @@ This is a plugin for [SKSE64](https://skse.silverlock.org/) that aims to improve
 
 - Windows PowerShell 5.1 or [PowerShell 7-and-later](https://learn.microsoft.com/powershell/scripting/install/installing-powershell).
 - The [LDC D compiler](https://github.com/ldc-developers/ldc).
-- The [Clang C++ compiler](https://releases.llvm.org/).
-- A standard environment (e.g. the [MSVC Build Tools](https://learn.microsoft.com/cpp/build/building-on-the-command-line)) for targeting x86-64 Windows, specifically: having the Windows import libraries available via the library-path; having `rc` available via the `PATH`.
+- The [Clang C++ compiler](https://releases.llvm.org/) — or MSVC's `cl.exe`, which the build script substitutes automatically when clang++ is absent.
+- A standard environment (e.g. the [MSVC Build Tools](https://learn.microsoft.com/cpp/build/building-on-the-command-line)) for targeting x86-64 Windows, specifically: having the Windows import libraries available via the library-path; having `rc` available via the `PATH`. `lld-link` is used when available, otherwise MSVC's `link.exe`.
 - (Optional) [`7za`](https://www.7-zip.org/download.html) being available via the `PATH`, for packaging the built plugins.
 
 ### Procedure
 
 In an environment for targeting x86-64 Windows, run the `build.ps1` script found in the root of this repository.
 The resulting DLLs will be available in the `build/release` directory.
+Pass `-TargetCPU x86-64-v3 -BuildTag -v3` for the high-end build, or `-TargetCPU x86-64-v2 -BuildTag -v2` for the universal build; each profile gets its own build directory.
 
 To package the built DLLs into archives suitable for installation, run the `package.ps1` script found in the root of this repository.
 The resulting archives will be available in the `package/release` directory.

@@ -6,6 +6,16 @@ The SKSE cosave is a sidecar file that is saved beside the game's actual save fi
 This plugin accelerates the saving/loading of only the SKSE cosave: it does nothing for the actual save file.
 Hence the acceleration of loading is less dramatic than the acceleration of saving.
 
+[size=4][b][u]What's new in 1.4.0[/u][/b][/size]
+[list]
+[*][b]Crash-safe saving:[/b] the cosave is written to a temporary file first, and your previous cosave is only replaced once the new one is complete. A crash or forced exit mid-save can no longer destroy your last good cosave.
+[*][b]Faster loading:[/b] buffered, sequential reads of exactly the cosave's length, so Windows read-ahead works for you instead of being bypassed.
+[*][b]Two builds:[/b] a High-End build (x86-64-v3; AMD Zen 2 / Intel Haswell and later, including all X3D CPUs) installed by default, plus a Universal build for older CPUs inside the archive.
+[*][b]Compatibility confirmed with NextGen Disk Cache 1.2.1+,[/b] which now leaves cosave/save file handling untouched.
+[*]Parallel saving is still available, still experimental, and still off by default.
+[/list]
+This release is maintained in a fork by ShugokiFable; the original author is "Just Harry", to whom all credit belongs.
+
 [size=4][b][u]Preamble[/u][/b][/size]
 SKSE is a fantastic bit of kit: almost every non-trivial Skyrim mod owes its very existence to it.
 In fact, the same is true for almost every game of Bethesda Game Studios from Oblivion onwards.

@@ -1,6 +1,19 @@
 
 # Save & Load Accelerator for SKSE Cosaves: Changelog
 
+## Version 1.4.0 (2026-07-18)
+
+The fourteenth release of this plugin, and the first from the maintenance fork at [ShugokiFable/save-load-accelerator-for-skse-cosaves](https://github.com/ShugokiFable/save-load-accelerator-for-skse-cosaves). The changes are as follows:
+- **Crash-safe cosave saving.** The cosave is now written to a sibling `.tmp` file first, and the previous cosave is only replaced—atomically, with write-through—after the new cosave has been written in full. Previously, saving began by truncating the existing cosave, so a crash, forced exit, or plugin error mid-save destroyed the last good cosave. Applies to both serial and experimental parallel saving.
+- **Faster, simpler cosave loading.** Loading now uses buffered, sequential reads of exactly the cosave's length, letting the Windows page cache and read-ahead do their job. The read-only handle no longer requests write-through (which was meaningless there) nor unbuffered I/O (which forced padded, over-long reads).
+- **A latent buffer-commit inconsistency on the save and load paths has been made structurally impossible**: the padded write now always fits in committed memory, and the buffer's growth size is the size actually used.
+- **Compatibility with [NextGen Disk Cache](https://github.com/ShugokiFable/NextGen-Disk-Cache).** Together with its 1.2.1 release—which leaves the flags of `.skse`/`.cosave`/`.ess`/`.bak` files untouched—S.L.A.C.K.'s deliberate unbuffered, write-through cosave I/O is no longer rewritten by file-cache hooks. (With any other configuration the plugin remains correct, merely less direct.)
+- **Two runtime builds are now provided.** High-End (the FOMOD default) targets the x86-64-v3 microarchitecture level (AVX2-class: AMD Zen 2 and later—including X3D parts—and Intel Haswell and later) with full optimisation; a Universal x86-64-v2 build for older CPUs is included in the archive for manual installation. Modern hardware—large X3D cache, DDR5, NVMe with onboard DRAM—benefits the existing parsing, copying, and callback workload without any artificial "modes".
+- **Release engineering.** The build script now accepts MSVC's `cl.exe` and `link.exe` as substitutes for clang++ and lld-link, checks every tool's exit code, and supports side-by-side CPU-profile build directories. Public archives no longer contain PDB files; symbols remain available as a separate developer artifact.
+- Parallel saving remains disabled by default: it runs third-party SKSE plugin callbacks concurrently, and those callbacks cannot be assumed thread-safe. No amount of modern hardware changes that.
+
+---
+
 ## Version 1.3.2 (2026-01-12)
 
 The thirteenth release of this plugin, the changes are as follows:
