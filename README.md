@@ -1,5 +1,5 @@
 
-# Faster Loadin and Savin
+# Faster Loadin' 'n' Savin'
 
 > **Fork note (1.5.0):** this repository is a maintenance fork of [just-harry/save-load-accelerator-for-skse-cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), which is the original and upstream source. Version 1.5.0 is the renamed, audited public distribution and carries forward the crash-safe atomic cosave replacement, buffered sequential loading, Universal x86-64-v2 default build, optional x86-64-v3 High-End build, and compatibility work introduced by the maintenance fork. See [`changelog.md`](changelog.md). All credit for the original plugin remains with Harry Gillanders ("just-harry"); everything remains 0BSD-licensed.
 
