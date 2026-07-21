@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
-	<moduleName>SaveLoadAcceleratorForSKSECosaves</moduleName>
+	<moduleName>Faster Loadin and Savin</moduleName>
 
 	<installSteps order="Explicit">
 		<installStep name="By Game Version">

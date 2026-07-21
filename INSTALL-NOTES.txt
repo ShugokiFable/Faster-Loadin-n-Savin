@@ -1,0 +1,8 @@
+Faster Loadin and Savin 1.5.0 - audited packaging notes
+
+- The FOMOD installs the Universal x86-64-v2 DLL by default for broad CPU compatibility.
+- Optional/High-End (x86-64-v3) contains the faster-profile DLLs for modern AVX-capable CPUs.
+- The internal DLL and INI filenames intentionally remain Save&LoadAcceleratorForSKSECosaves.* because the compiled plugin expects those names.
+- Select exactly the game version matching your Skyrim executable.
+- ParallelSaving remains disabled by default because third-party SKSE callbacks are not guaranteed to be thread-safe.
+- This package does not include SKEEcosaveLoadCrashFix.dll; that is a separate RaceMenu/SKEE crash-fix plugin.

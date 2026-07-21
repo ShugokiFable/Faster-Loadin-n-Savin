@@ -1,5 +1,20 @@
 
-# Save & Load Accelerator for SKSE Cosaves: Changelog
+# Faster Loadin and Savin: Changelog
+
+
+## Version 1.5.0 (2026-07-21)
+
+The public rename and release-hardening update:
+- The distribution is now presented as **Faster Loadin and Savin**, as requested by the original author.
+- FOMOD metadata, documentation, package naming, and version resources now report version 1.5.0.
+- Fixed FOMOD XML compatibility by restoring the upstream-proven UTF-8-without-BOM, double-quoted XML declaration, and Windows CRLF byte format. This prevents strict or buggy FOMOD parsers from rejecting the script at line 1, position 39.
+- The Universal x86-64-v2 DLL remains the safe default; AVX2-class x86-64-v3 builds are kept under the optional High-End folder.
+- The installable archive contains only runtime files and documentation, with source trees, build artifacts, symbols, scripts, and repository metadata removed.
+- The stale original Nexus Mods page identity was removed from the FOMOD metadata.
+- Internal DLL and INI filenames remain unchanged because the compiled plugin expects those exact technical names.
+- No cosave format change was introduced, and saves remain compatible with the original plugin and SKSE.
+
+---
 
 ## Version 1.4.0 (2026-07-18)
 
@@ -8,7 +23,7 @@ The fourteenth release of this plugin, and the first from the maintenance fork a
 - **Faster, simpler cosave loading.** Loading now uses buffered, sequential reads of exactly the cosave's length, letting the Windows page cache and read-ahead do their job. The read-only handle no longer requests write-through (which was meaningless there) nor unbuffered I/O (which forced padded, over-long reads).
 - **A latent buffer-commit inconsistency on the save and load paths has been made structurally impossible**: the padded write now always fits in committed memory, and the buffer's growth size is the size actually used.
 - **Compatibility with [NextGen Disk Cache](https://github.com/ShugokiFable/NextGen-Disk-Cache).** Together with its 1.2.1 release—which leaves the flags of `.skse`/`.cosave`/`.ess`/`.bak` files untouched—S.L.A.C.K.'s deliberate unbuffered, write-through cosave I/O is no longer rewritten by file-cache hooks. (With any other configuration the plugin remains correct, merely less direct.)
-- **Two runtime builds are now provided.** High-End (the FOMOD default) targets the x86-64-v3 microarchitecture level (AVX2-class: AMD Zen 2 and later—including X3D parts—and Intel Haswell and later) with full optimisation; a Universal x86-64-v2 build for older CPUs is included in the archive for manual installation. Modern hardware—large X3D cache, DDR5, NVMe with onboard DRAM—benefits the existing parsing, copying, and callback workload without any artificial "modes".
+- **Two runtime builds are now provided.** Universal x86-64-v2 (the FOMOD default) is used for broad CPU compatibility; the optional High-End build targets the x86-64-v3 microarchitecture level (AVX2-class: AMD Zen 2 and later—including X3D parts—and Intel Haswell and later) with full optimisation; a Universal x86-64-v2 build for older CPUs is included in the archive for manual installation. Modern hardware—large X3D cache, DDR5, NVMe with onboard DRAM—benefits the existing parsing, copying, and callback workload without any artificial "modes".
 - **Release engineering.** The build script now accepts MSVC's `cl.exe` and `link.exe` as substitutes for clang++ and lld-link, checks every tool's exit code, and supports side-by-side CPU-profile build directories. Public archives no longer contain PDB files; symbols remain available as a separate developer artifact.
 - Parallel saving remains disabled by default: it runs third-party SKSE plugin callbacks concurrently, and those callbacks cannot be assumed thread-safe. No amount of modern hardware changes that.
 

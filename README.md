@@ -1,9 +1,40 @@
 
-# Save & Load Accelerator for SKSE Cosaves
+# Faster Loadin and Savin
 
-> **Fork note (1.4.0):** this repository is a maintenance fork of [just-harry/save-load-accelerator-for-skse-cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), which is the original and upstream source. Version 1.4.0 adds crash-safe atomic cosave replacement, buffered sequential loading, an x86-64-v3 High-End build (with a Universal v2 fallback), and confirmed compatibility with NextGen Disk Cache 1.2.1+. See [`changelog.md`](changelog.md). All credit for the plugin itself remains with Harry Gillanders ("just-harry"); everything remains 0BSD-licensed.
+> **Fork note (1.5.0):** this repository is a maintenance fork of [just-harry/save-load-accelerator-for-skse-cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), which is the original and upstream source. Version 1.5.0 is the renamed, audited public distribution and carries forward the crash-safe atomic cosave replacement, buffered sequential loading, Universal x86-64-v2 default build, optional x86-64-v3 High-End build, and compatibility work introduced by the maintenance fork. See [`changelog.md`](changelog.md). All credit for the original plugin remains with Harry Gillanders ("just-harry"); everything remains 0BSD-licensed.
+
+
+> **Naming and compatibility note:** this public distribution is named **Faster Loadin and Savin**. The runtime DLL and INI retain their original `Save&LoadAcceleratorForSKSECosaves` filenames because the plugin locates those exact names internally. Renaming them without rebuilding the DLL would break startup and configuration loading.
 
 This is a plugin for [SKSE64](https://skse.silverlock.org/) that aims to improve the performance of saving and loading SKSE cosave files.
+
+## Verifying what you downloaded
+
+This project ships a compiled DLL, and you should not have to take anyone's word
+about what is inside it. **[`VERIFYING-RELEASES.md`](VERIFYING-RELEASES.md)**
+documents exactly what each release contains and how to check it yourself with
+`tools/verify-release-binaries.py` (Python standard library only, no
+dependencies):
+
+```
+python tools/verify-release-binaries.py imports  <installed>\Save&LoadAcceleratorForSKSECosaves.dll
+python tools/verify-release-binaries.py manifest <extracted release folder>
+python tools/verify-release-binaries.py compare  <old>.dll <new>.dll
+```
+
+The `imports` subcommand prints every Windows API the DLL is able to call and
+flags any networking, process-creation, remote-write, or persistence capability.
+For every DLL in the 1.5.0 release it reports none: there is no socket, HTTP,
+`CreateProcess`, `WriteProcessMemory`, registry, or `LoadLibrary` import in the
+binary at all. Release hashes are published in
+[`VERIFYING-RELEASES.md`](VERIFYING-RELEASES.md).
+
+**1.5.0 contains no code changes from 1.4.0** -- it is the same binaries with
+their version resources restamped and the package rearranged (Universal
+x86-64-v2 is now the safe default; the AVX2 High-End build moved to `Optional/`).
+`compare` demonstrates this: across all sixteen shipped DLLs the only differing
+bytes are version strings, the version resource, and the PE checksum. `.text`,
+the executable code, is identical.
 
 ## Building
 
