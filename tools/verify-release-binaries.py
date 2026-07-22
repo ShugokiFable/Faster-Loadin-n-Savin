@@ -12,13 +12,10 @@ Two modes, both dependency-free (Python 3.8+ standard library only):
 
 Why this exists
 ---------------
-Release 1.5.0 of this project ships the binaries built for 1.4.0 with their
-version resources updated to read 1.5.0 (a rename, not a rebuild). That claim
-is easy to assert and, without tooling, tedious to check. This script lets
-anyone confirm it byte-for-byte: run `compare` on a 1.4.0 build against the
-matching shipped 1.5.0 DLL and observe that `.text` -- the executable code --
-is identical, and that differences appear only in `.rdata` version strings,
-`.rsrc` version resources, and the PE header checksum.
+Metadata-only releases can be verified without trusting a release note. Run
+`compare` on matching DLLs and confirm that `.text` -- the executable code --
+is identical, while differences are confined to version-bearing `.rdata`,
+`.rsrc`, and the PE header checksum.
 
 Examples
 --------
@@ -385,10 +382,10 @@ def cmd_imports(args) -> int:
             print(f"  {f}")
         return 1
 
-    print("\nNo networking, process-creation, remote-write, or persistence")
-    print("imports present. This binary cannot open a socket, start a program,")
-    print("write into another process, or add a registry run-key, because the")
-    print("functions required to do so are not imported.")
+    print("\nNo flagged networking, process-creation, remote-write, or")
+    print("persistence APIs appear in the static import table.")
+    print("NOTE: static imports are evidence, not proof of every capability;")
+    print("native code can resolve APIs dynamically. Review source and call sites too.")
     return 0
 
 
@@ -405,8 +402,8 @@ def main(argv=None) -> int:
     m.set_defaults(func=cmd_manifest)
 
     c = sub.add_parser("compare", help="section-level diff of two PE files")
-    c.add_argument("old", help="baseline DLL (e.g. a 1.4.0 build)")
-    c.add_argument("new", help="DLL to check (e.g. the shipped 1.5.0 DLL)")
+    c.add_argument("old", help="baseline DLL (for example, the previous release)")
+    c.add_argument("new", help="DLL to check (for example, the current release)")
     c.add_argument("-v", "--verbose", action="store_true",
                    help="print each differing byte range")
     c.add_argument("--strict", action="store_true",

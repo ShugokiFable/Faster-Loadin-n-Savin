@@ -283,6 +283,8 @@ try
 				/nodefaultlib `
 				/entry:dllEntrypoint `
 				/debug:full `
+				'/pdbaltpath:%_PDB%' `
+				/brepro `
 				/opt:ref `
 				"$Base/$($DLL.Name).res" `
 				"./$Base/exception_wrapper.obj" `

@@ -1,63 +1,84 @@
-
 # Faster Loadin' 'n' Savin'
 
-> **Fork note (1.5.0):** this repository is a maintenance fork of [just-harry/save-load-accelerator-for-skse-cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), which is the original and upstream source. Version 1.5.0 is the renamed, audited public distribution and carries forward the crash-safe atomic cosave replacement, buffered sequential loading, Universal x86-64-v2 default build, optional x86-64-v3 High-End build, and compatibility work introduced by the maintenance fork. See [`changelog.md`](changelog.md). All credit for the original plugin remains with Harry Gillanders ("just-harry"); everything remains 0BSD-licensed.
+**Faster Loadin' 'n' Savin' is a maintenance fork of [Save and Load Accelerator for SKSE Cosaves](https://github.com/just-harry/save-load-accelerator-for-skse-cosaves), originally created by Harry Gillanders (`just-harry`).** The upstream code and this fork are distributed under the BSD Zero Clause License (0BSD). The fork source is available at [https://github.com/ShugokiFable/Faster-Loadin-n-Savin](https://github.com/ShugokiFable/Faster-Loadin-n-Savin).
 
+The public name is different from the original mod. The runtime DLL and INI intentionally retain the technical filenames `Save&LoadAcceleratorForSKSECosaves.dll` and `Save&LoadAcceleratorForSKSECosaves.ini` because the compiled plugin expects those names.
 
-> **Naming and compatibility note:** this public distribution is named **Faster Loadin and Savin**. The runtime DLL and INI retain their original `Save&LoadAcceleratorForSKSECosaves` filenames because the plugin locates those exact names internally. Renaming them without rebuilding the DLL would break startup and configuration loading.
+## What it changes
 
-This is a plugin for [SKSE64](https://skse.silverlock.org/) that aims to improve the performance of saving and loading SKSE cosave files.
+This SKSE plugin accelerates **SKSE cosave** serialization and loading. It does not accelerate or rewrite Skyrim's main `.ess` save format.
 
-## Verifying what you downloaded
+The maintenance fork adds:
 
-This project ships a compiled DLL, and you should not have to take anyone's word
-about what is inside it. **[`VERIFYING-RELEASES.md`](VERIFYING-RELEASES.md)**
-documents exactly what each release contains and how to check it yourself with
-`tools/verify-release-binaries.py` (Python standard library only, no
-dependencies):
+- sibling temporary-file writes followed by `MoveFileExA(..., MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)` replacement;
+- buffered, sequential, exact-length cosave loading;
+- corrected committed-buffer sizing for padded writes;
+- a Universal x86-64-v2 build as the installer default;
+- an optional x86-64-v3 High-End build;
+- clean, reproducible release packaging with hashes and manifests.
 
+## Safety scope and limitations
+
+Atomic cosave replacement means the previous cosave is not truncated before the replacement file has been fully written and closed. This **reduces the risk of a destroyed or truncated SKSE cosave when saving is interrupted**.
+
+It is not a transaction spanning both Skyrim's `.ess` file and the SKSE cosave. It cannot guarantee that every third-party SKSE serialization callback produced logically complete data. The experimental parallel-saving mode remains disabled by default because third-party callbacks cannot be assumed thread-safe.
+
+No save cleaning or conversion is required when installing, updating, or uninstalling this plugin.
+
+## Installation
+
+Install the archive with Mod Organizer 2, Vortex, or another FOMOD-capable manager.
+
+1. Select the detected Skyrim runtime.
+2. Keep **Universal (Recommended)** unless you deliberately want the optional High-End build.
+3. Confirm that the installed DLL is at `Data\DLLPlugins\Save&LoadAcceleratorForSKSECosaves.dll`.
+
+The High-End x86-64-v3 build requires an AVX2-class CPU, broadly AMD Zen 2 or newer or Intel Haswell or newer. It may provide little or no measurable improvement for a given load order.
+
+## Compatibility
+
+The plugin is standalone apart from SKSE and a compatible DLL preloader. It does not require NextGen Disk Cache. Parallel saving should remain disabled unless every participating SKSE plugin is known to be thread-safe during serialization.
+
+## Verifying releases
+
+`tools/verify-release-binaries.py` can produce DLL manifests, inspect static imports, and compare PE sections:
+
+```text
+python tools/verify-release-binaries.py manifest <extracted-release>
+python tools/verify-release-binaries.py imports <installed-dll>
+python tools/verify-release-binaries.py compare <old-dll> <new-dll> --strict
 ```
-python tools/verify-release-binaries.py imports  <installed>\Save&LoadAcceleratorForSKSECosaves.dll
-python tools/verify-release-binaries.py manifest <extracted release folder>
-python tools/verify-release-binaries.py compare  <old>.dll <new>.dll
+
+Static import inspection is evidence, not a proof of every capability a native binary could exercise. Version 1.5.1 is supported by the complete published source, section-level binary comparisons, release hashes, and the generated manifest. See [`VERIFYING-RELEASES.md`](VERIFYING-RELEASES.md).
+
+## Release provenance
+
+Version 1.5.1 contains **no save/load implementation changes from 1.4.0 or 1.5.0**. It hardens the installer, packaging, permissions guidance, credits, and verification language. The shipped 1.5.1 DLLs retain the same executable `.text` section as their corresponding 1.5.0 DLLs; only version metadata, the sanitized embedded PDB path, and the PE checksum differ.
+
+## Building and packaging
+
+Requirements:
+
+- Windows PowerShell 5.1 or PowerShell 7+
+- LDC (`ldc2`)
+- Windows SDK resource compiler (`rc.exe`)
+- Clang C++ or MSVC `cl.exe`
+- `lld-link` or MSVC `link.exe`
+- Python 3.8+ for release verification
+
+Prepare a release with:
+
+```powershell
+./scripts/update-version-number.ps1 1.5.1.0
+./package-release.ps1 -Version 1.5.1
 ```
 
-The `imports` subcommand prints every Windows API the DLL is able to call and
-flags any networking, process-creation, remote-write, or persistence capability.
-For every DLL in the 1.5.0 release it reports none: there is no socket, HTTP,
-`CreateProcess`, `WriteProcessMemory`, registry, or `LoadLibrary` import in the
-binary at all. Release hashes are published in
-[`VERIFYING-RELEASES.md`](VERIFYING-RELEASES.md).
+`package.ps1` is retained as a compatibility wrapper and delegates to `package-release.ps1`; it no longer creates PDB-bearing legacy packages.
 
-**1.5.0 contains no code changes from 1.4.0** -- it is the same binaries with
-their version resources restamped and the package rearranged (Universal
-x86-64-v2 is now the safe default; the AVX2 High-End build moved to `Optional/`).
-`compare` demonstrates this: across all sixteen shipped DLLs the only differing
-bytes are version strings, the version resource, and the PE checksum. `.text`,
-the executable code, is identical.
+## License and credits
 
-## Building
+See [`LICENSE`](LICENSE) and [`CREDITS.md`](CREDITS.md). The 0BSD license permits use, copying, modification, and redistribution with or without fee. Nexus permissions should mirror those terms.
 
-### Requirements
-
-- Windows PowerShell 5.1 or [PowerShell 7-and-later](https://learn.microsoft.com/powershell/scripting/install/installing-powershell).
-- The [LDC D compiler](https://github.com/ldc-developers/ldc).
-- The [Clang C++ compiler](https://releases.llvm.org/) — or MSVC's `cl.exe`, which the build script substitutes automatically when clang++ is absent.
-- A standard environment (e.g. the [MSVC Build Tools](https://learn.microsoft.com/cpp/build/building-on-the-command-line)) for targeting x86-64 Windows, specifically: having the Windows import libraries available via the library-path; having `rc` available via the `PATH`. `lld-link` is used when available, otherwise MSVC's `link.exe`.
-- (Optional) [`7za`](https://www.7-zip.org/download.html) being available via the `PATH`, for packaging the built plugins.
-
-### Procedure
-
-In an environment for targeting x86-64 Windows, run the `build.ps1` script found in the root of this repository.
-The resulting DLLs will be available in the `build/release` directory.
-Pass `-TargetCPU x86-64-v3 -BuildTag -v3` for the high-end build, or `-TargetCPU x86-64-v2 -BuildTag -v2` for the universal build; each profile gets its own build directory.
-
-To package the built DLLs into archives suitable for installation, run the `package.ps1` script found in the root of this repository.
-The resulting archives will be available in the `package/release` directory.
-
-## Licence
-
-Unless otherwise specified, everything in this repository is licensed under the terms of the [BSD Zero Clause License](https://spdx.org/licenses/0BSD.html).
 
 ## Hitchhiker's Guide to the Codebase
 

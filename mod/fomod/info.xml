@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <fomod>
-	<Name>Faster Loadin and Savin</Name>
-	<Author>ShugokiFable; original plugin by Harry Gillanders (Just Harry)</Author>
-	<Version MachineVersion="1.5.0">1.5.0</Version>
-	<Description>A maintenance fork that makes heavily modded games save and load SKSE cosaves more quickly.</Description>
-	<Website>https://github.com/ShugokiFable/save-load-accelerator-for-skse-cosaves</Website>
+    <Name>Faster Loadin and Savin</Name>
+    <Author>ShugokiFable; original plugin by Harry Gillanders (just-harry)</Author>
+    <Version MachineVersion="1.5.1">1.5.1</Version>
+    <Description>A 0BSD maintenance fork of Save and Load Accelerator for SKSE Cosaves, with atomic cosave replacement, buffered loading, and hardened release packaging.</Description>
+    <Website>https://github.com/ShugokiFable/Faster-Loadin-n-Savin</Website>
 </fomod>

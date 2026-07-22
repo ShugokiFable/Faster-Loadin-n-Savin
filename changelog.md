@@ -1,6 +1,21 @@
-
 # Faster Loadin and Savin: Changelog
 
+## Version 1.5.1 (2026-07-22)
+
+Release-hardening update. The save/load implementation is unchanged from 1.4.0 and 1.5.0.
+
+- Added a real FOMOD CPU-profile step. Universal x86-64-v2 remains recommended; selecting High-End conditionally overlays only the matching x86-64-v3 game-version DLL.
+- Reworked `package-release.ps1` so its default version, package name, folder layout, and staged payload match the public release.
+- Converted legacy `package.ps1` into a wrapper around the clean release packager, eliminating the old PDB-bearing package path.
+- Sanitized user-specific absolute PDB paths embedded in the DLL CodeView metadata and configured future builds to embed only the PDB filename.
+- Added strict release gates for all eight game targets, both CPU profiles, FOMOD flags and conditional installs, version consistency, forbidden artifacts, and generated DLL manifests.
+- Reworded atomic replacement claims: it reduces the risk of truncated or destroyed SKSE cosaves but is not an atomic transaction with the main `.ess` file.
+- Reworded import-table claims to acknowledge that static imports are evidence rather than proof of every possible native-binary capability.
+- Added explicit 0BSD credits, redistribution guidance, and a Nexus permissions checklist.
+- Corrected all maintenance-fork links to `https://github.com/ShugokiFable/Faster-Loadin-n-Savin`.
+- Restamped all sixteen runtime DLLs to 1.5.1.0. Their executable `.text` sections remain byte-identical to the corresponding 1.5.0 DLLs; user-specific absolute PDB paths embedded by the linker were also reduced to the PDB filename.
+
+---
 
 ## Version 1.5.0 (2026-07-21)
 
@@ -18,7 +33,7 @@ The public rename and release-hardening update:
 
 ## Version 1.4.0 (2026-07-18)
 
-The fourteenth release of this plugin, and the first from the maintenance fork at [ShugokiFable/save-load-accelerator-for-skse-cosaves](https://github.com/ShugokiFable/save-load-accelerator-for-skse-cosaves). The changes are as follows:
+The fourteenth release of this plugin, and the first from the maintenance fork at [ShugokiFable/Faster-Loadin-n-Savin](https://github.com/ShugokiFable/Faster-Loadin-n-Savin). The changes are as follows:
 - **Crash-safe cosave saving.** The cosave is now written to a sibling `.tmp` file first, and the previous cosave is only replaced—atomically, with write-through—after the new cosave has been written in full. Previously, saving began by truncating the existing cosave, so a crash, forced exit, or plugin error mid-save destroyed the last good cosave. Applies to both serial and experimental parallel saving.
 - **Faster, simpler cosave loading.** Loading now uses buffered, sequential reads of exactly the cosave's length, letting the Windows page cache and read-ahead do their job. The read-only handle no longer requests write-through (which was meaningless there) nor unbuffered I/O (which forced padded, over-long reads).
 - **A latent buffer-commit inconsistency on the save and load paths has been made structurally impossible**: the padded write now always fits in committed memory, and the buffer's growth size is the size actually used.
@@ -165,4 +180,3 @@ The first release of this plugin, the features provided are as follows:
 ---
 
 The song recommendation for this release is ["10周年目突入記念公演"大拍乱会"メドレー" by CHARAN-PO-RANTAN](https://www.youtube.com/watch?v=fuIDO1_3oSE).
-
