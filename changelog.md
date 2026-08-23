@@ -1,5 +1,27 @@
 # Faster Loadin and Savin: Changelog
 
+## Version 1.7.0 (2026-08-23)
+
+Rebase onto upstream S.L.A.C.K. 1.3.4 (released 2026-08-22), one day after our 1.6.0.
+
+- Rebased on upstream 1.3.4: same-DLL loader diplomacy — `SKSEPlugin_Preload` moved to ordinal 1 so SKSE 2.2.6 loads the DLL far enough to show a friendly version-mismatch dialog (with download link) instead of being silently rejected; comprehensive mismatch messaging; INI name fixed in error text.
+- **SKSE 2.2.6 note:** still requires SKSE 2.2.8+ to *run* on Skyrim AE 1.6.1170 — but now tells you so politely instead of failing cryptically.
+- Retained: atomic crash-safe cosave writes (`.tmp` + `MoveFileExA` replace) and buffered exact-length reads — still unique to this fork.
+- Fixed: shipped DLLs now self-report their true version (`SKSEPlugin_Version` + FileVersion resources), inherited stamping-script bugs repaired.
+
+## Version 1.6.0 (2026-08-21)
+
+Rebase onto upstream S.L.A.C.K. 1.3.3 (2026-08-21). Everything 1.3.3 has, plus the fork's crash-safe cosave writes.
+
+- Rebased on upstream 1.3.3: SKSE 2.2.8 now supported and required for Skyrim SE 1.6.1170; SKSE 2.3.0 supported for Skyrim AE 1.7.99; SKSE 2.2.6 no longer supported.
+- For Skyrim 1.6.1170+, SSE Engine Fixes' SKSE64 Preloader is no longer required; SKSE64's builtin preloader is used instead (new `SKSEPlugin_Preload` / `SKSEPlugin_Version` interface on the 1.6.1170 and 1.7.99 builds).
+- Inherited upstream's fix for a use-after-free when reading the plugin's INI file.
+- Inherited upstream's improved function-injection reliability, improved error messages, and PDB base-path scrubbing (`C:\Faster-Loadin-and-Savin-v1.6.0`).
+- Retained this fork's defining feature: cosaves are written to a sibling `.tmp` file and atomically replace the previous cosave only after being written in full, so a crash mid-save can no longer destroy the last good cosave (upstream 1.3.3 still truncates cosaves in place). Buffered exact-length cosave reads are also retained.
+- Fixed the fork's version-stamping script: releases 1.4.0-1.5.1 shipped with `SKSEPlugin_Version`/`GetReleaseVersion` still reporting 1.3.2-era values; all version stamps (rc, dialog title, FOMOD, entrypoint) now derive from one version argument.
+- FOMOD updated for the new nine game variants (adds Skyrim AE 1.7.99 / SKSE 2.3.0 and the split 1.6.1170 build); Universal x86-64-v2 default and conditional High-End x86-64-v3 overlay retained.
+- Note for users of the original mod: the DLL and INI file names are unchanged from previous releases of this fork, so it remains a drop-in replacement for S.L.A.C.K. (upstream's 1.3.3 renamed its own DLL; that rename is cosmetic and was not adopted).
+
 ## Version 1.5.1 (2026-07-22)
 
 Release-hardening update. The save/load implementation is unchanged from 1.4.0 and 1.5.0.

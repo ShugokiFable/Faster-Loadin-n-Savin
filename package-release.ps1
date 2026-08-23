@@ -3,7 +3,7 @@
 [CmdletBinding()]
 Param (
     [Parameter()]
-    [Version] $Version = [Version]'1.5.1',
+    [Version] $Version = [Version]'1.7.0',
 
     [Parameter()]
     [Switch] $SkipBuild
@@ -15,7 +15,7 @@ Set-Location $Root
 
 $SemanticVersion = "$($Version.Major).$($Version.Minor).$($Version.Build)"
 $FileVersion = "$SemanticVersion.0"
-$Variants = @('ae', 'ae1130', 'ae640', 'ae353', 'se', 'vr', 'gog', 'gog659')
+$Variants = @('ae7_99', 'ae1170', 'ae1130', 'ae640', 'ae353', 'se', 'vr', 'gog', 'gog659')
 $DLLName = 'Save&LoadAcceleratorForSKSECosaves.dll'
 $ININame = 'Save&LoadAcceleratorForSKSECosaves.ini'
 $HighEndRoot = 'Optional/High-End (x86-64-v3)'
@@ -77,10 +77,10 @@ $GameDependencies = @($ModuleConfig.SelectNodes('//gameDependency'))
 $GameFlags = @($ModuleConfig.SelectNodes('//conditionFlags/flag[@name="GameVersion"]'))
 $CPUFlags = @($ModuleConfig.SelectNodes('//conditionFlags/flag[@name="CPUProfile"]'))
 $HighEndPatterns = @($ModuleConfig.SelectNodes('//conditionalFileInstalls/patterns/pattern'))
-if ($GameDependencies.Count -ne 8) { throw "Expected 8 game dependencies; found $($GameDependencies.Count)." }
-if ($GameFlags.Count -ne 8) { throw "Expected 8 GameVersion flags; found $($GameFlags.Count)." }
+if ($GameDependencies.Count -ne 9) { throw "Expected 9 game dependencies; found $($GameDependencies.Count)." }
+if ($GameFlags.Count -ne 9) { throw "Expected 9 GameVersion flags; found $($GameFlags.Count)." }
 if ($CPUFlags.Count -ne 2) { throw "Expected 2 CPUProfile flags; found $($CPUFlags.Count)." }
-if ($HighEndPatterns.Count -ne 8) { throw "Expected 8 High-End conditional patterns; found $($HighEndPatterns.Count)." }
+if ($HighEndPatterns.Count -ne 9) { throw "Expected 9 High-End conditional patterns; found $($HighEndPatterns.Count)." }
 
 foreach ($Variant in $Variants) {
     foreach ($Path in @("$Variant/DLLPlugins", "$HighEndRoot/$Variant/DLLPlugins")) {
@@ -109,7 +109,7 @@ $Manifest = & $Python.Source @PythonPrefix $VerifyTool manifest $Stage
 if ($LASTEXITCODE -ne 0) { throw 'DLL manifest generation failed.' }
 $Manifest | Set-Content (Join-Path $Stage 'RELEASE-MANIFEST.txt') -Encoding ASCII
 $VersionMatches = @($Manifest | Select-String -SimpleMatch $FileVersion)
-if ($VersionMatches.Count -ne 16) { throw "Expected 16 DLLs stamped $FileVersion; found $($VersionMatches.Count)." }
+if ($VersionMatches.Count -ne 18) { throw "Expected 18 DLLs stamped $FileVersion; found $($VersionMatches.Count)." }
 
 $ArchiveTool = Join-Path $Root 'tools/create-release-archive.py'
 & $Python.Source @PythonPrefix $ArchiveTool $Stage $Zip

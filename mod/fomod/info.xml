@@ -2,7 +2,7 @@
 <fomod>
     <Name>Faster Loadin and Savin</Name>
     <Author>ShugokiFable; original plugin by Harry Gillanders (just-harry)</Author>
-    <Version MachineVersion="1.5.1">1.5.1</Version>
+    <Version MachineVersion="1.7.0">1.7.0</Version>
     <Description>A 0BSD maintenance fork of Save and Load Accelerator for SKSE Cosaves, with atomic cosave replacement, buffered loading, and hardened release packaging.</Description>
     <Website>https://github.com/ShugokiFable/Faster-Loadin-n-Savin</Website>
 </fomod>

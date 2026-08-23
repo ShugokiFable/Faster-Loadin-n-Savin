@@ -3,12 +3,24 @@
 
 module slack_mod.entrypoint;
 
+import game;
+import ldc.attributes : assumeUsed, section;
+import skse64.dll_plugins;
+import skse64.hacks.versioning;
 import slack_common.bindings;
 import slack_common.memory;
 import slack_common.text;
 import slack_common.user_interface;
 import slack_mod.global;
 import slack_mod.setup;
+
+
+@assumeUsed
+@section("humanity")
+immutable(char[111]) niceSurprise = (
+	  "The entirety of this program's source-code was human-written, "
+	~ "with no assistance at all from LLMs of any kind.\0"
+);
 
 
 /+ Will no one rid me of this turbulent runtime?! +/
@@ -30,18 +42,97 @@ BOOL dllEntrypoint (HINSTANCE hinstDLL, uint fdwReason, scope void* lpvReserved)
 }
 
 
-extern(Windows)
-void SaveLoadAcceleratorForSKSECosaves_InitialiseViaPreloader () nothrow @nogc
+static if (expectedSKSE64Version >= 0x02_02_007_0)
 {
-	wchar[MAX_PATH + 60] stringBuffer = void;
-	setUpEverything(stringBuffer);
+	extern(C)
+	immutable(DLLPluginVersionMetadata) SKSEPlugin_Version = {
+		schemaVersion: DLLPluginVersionMetadata.SchemaVersion.v1,
+		pluginVersion: /+release-version+/0x01_07_000_0,
+		name: "Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.)",
+		authorName: `"Just Harry"`,
+		emailAddress: "regarding__s_l_a_c_k_@harrygillanders.com",
+		/+ These support flags are a complete lie. We do our own version checking. +/
+		gameVersionSupportExtendedFlags: DLLPluginVersionMetadata.GameVersionSupportExtendedFlags.doesNotDependOnFixedOffsets,
+		gameVersionSupportFlags: DLLPluginVersionMetadata.GameVersionSupportFlags.hasNoHardcodedAddresses,
+	};
+
+
+	extern(C)
+	bool SKSEPlugin_Preload (const(SKSE64Provider)* skse) nothrow @nogc
+	{
+		wchar[512] stringBuffer = void;
+		uint skse64Version = skse.skse64Version;
+
+		if (skse64Version != expectedSKSE64Version)
+		{
+			showComprehensiveSKSEVersionMismatchMessage(stringBuffer, skse64Version, cast(void[0]) []);
+		}
+		else
+		{
+			setUpEverything(stringBuffer);
+		}
+
+		return true;
+	}
+
+
+	extern(C)
+	bool SKSEPlugin_Load (const(SKSE64Provider)* skse) nothrow @nogc
+	{
+		/+ Version checking for SKSE v2.2.7-and-later is handled via SKSEPlugin_Preload.
+		   Older versions of SKSE don't provide preloading, hence this fallback. +/
+		if (skse.skse64Version > 0x02_02_006_0)
+		{
+			return true;
+		}
+
+		static if (targetedGameArchetype == GameArchetype.ae1170)
+		{
+			if (skse.skse64Version == 0x02_02_006_0)
+			{
+				static immutable(wchar[203]) message = "Version 2.2.6 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.2.8 of SKSE.\0";
+				enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-792256:~:text=Skyrim%20Script%20Extender%20%28SKSE64%29%20Steam,2%2E2%2E8";
+
+				uint button = showMessageBox(message.ptr, errorDialogTitle.ptr, MB_OKCANCEL | MB_ICONHAND);
+
+				if (button == IDOK)
+				{
+					openURL(url.ptr);
+				}
+
+				return true;
+			}
+		}
+
+		wchar[512] stringBuffer = void;
+		showGenericSKSEVersionMismatchMessage(stringBuffer, skse.skse64Version);
+
+		return true;
+	}
+}
+else
+{
+	extern(Windows)
+	void SaveLoadAcceleratorForSKSECosaves_InitialiseViaPreloader () nothrow @nogc
+	{
+		wchar[512] stringBuffer = void;
+		setUpEverything(stringBuffer);
+	}
 }
 
 
+/+ This is version as-in "incremented when a backwards-incompatible change to the API is made"-version. +/
 extern(Windows)
 uint SaveLoadAcceleratorForSKSECosaves_GetVersion () @safe pure nothrow @nogc
 {
 	return 0;
+}
+
+
+extern(Windows)
+uint SaveLoadAcceleratorForSKSECosaves_GetReleaseVersion () @safe pure nothrow @nogc
+{
+	return /+release-version+/0x01_07_000_0;
 }
 
 

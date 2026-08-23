@@ -7,13 +7,35 @@
             <optionalFileGroups order="Explicit">
                 <group name="Select your Skyrim runtime" type="SelectExactlyOne">
                     <plugins order="Explicit">
-                        <plugin name="Skyrim AE v1.6.1170; SKSE64 v2.2.6">
-                            <description>For Skyrim Anniversary Edition 1.6.1170 with SKSE64 2.2.6.</description>
+                        <plugin name="Skyrim AE v1.7.99; SKSE64 v2.3.0">
+                            <description>For Skyrim Anniversary Edition 1.7.99 with SKSE64 2.3.0.</description>
                             <files>
-                                <folder source="ae" destination="" priority="0" />
+                                <folder source="ae7_99" destination="" priority="0" />
                             </files>
                             <conditionFlags>
-                                <flag name="GameVersion">ae</flag>
+                                <flag name="GameVersion">ae7_99</flag>
+                            </conditionFlags>
+                            <typeDescriptor>
+                                <dependencyType>
+                                    <defaultType name="Optional" />
+                                    <patterns>
+                                        <pattern>
+                                            <dependencies>
+                                                <gameDependency version="1.7.99" />
+                                            </dependencies>
+                                            <type name="Recommended" />
+                                        </pattern>
+                                    </patterns>
+                                </dependencyType>
+                            </typeDescriptor>
+                        </plugin>
+                        <plugin name="Skyrim AE v1.6.1170; SKSE64 v2.2.8">
+                            <description>For Skyrim Anniversary Edition 1.6.1170 with SKSE64 2.2.8.</description>
+                            <files>
+                                <folder source="ae1170" destination="" priority="0" />
+                            </files>
+                            <conditionFlags>
+                                <flag name="GameVersion">ae1170</flag>
                             </conditionFlags>
                             <typeDescriptor>
                                 <dependencyType>
@@ -220,11 +242,20 @@
         <patterns>
             <pattern>
                 <dependencies operator="And">
-                    <flagDependency flag="GameVersion" value="ae" />
+                    <flagDependency flag="GameVersion" value="ae7_99" />
                     <flagDependency flag="CPUProfile" value="HighEnd" />
                 </dependencies>
                 <files>
-                    <folder source="Optional/High-End (x86-64-v3)/ae" destination="" priority="100" />
+                    <folder source="Optional/High-End (x86-64-v3)/ae7_99" destination="" priority="100" />
+                </files>
+            </pattern>
+            <pattern>
+                <dependencies operator="And">
+                    <flagDependency flag="GameVersion" value="ae1170" />
+                    <flagDependency flag="CPUProfile" value="HighEnd" />
+                </dependencies>
+                <files>
+                    <folder source="Optional/High-End (x86-64-v3)/ae1170" destination="" priority="100" />
                 </files>
             </pattern>
             <pattern>

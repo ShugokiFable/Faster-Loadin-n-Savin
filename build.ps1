@@ -19,14 +19,17 @@ Param
 			$TargetCPU = 'x86-64-v2',
 
 	[Parameter()]
-			# Appended to the build directory, so that multiple CPU-profile builds can coexist.
-			$BuildTag = '',
+		# Appended to the build directory, so that multiple CPU-profile builds can coexist.
+		$BuildTag = '',
 
 	[Parameter()]
-			[Switch] $Unittest,
+		[Switch] $Unittest,
 
 	[Parameter()]
-			$DVersions = @()
+		$DVersions = @(),
+
+	[Parameter()]
+		$ReleaseTag = <#release-version#>'vv1.7.0'
 )
 
 . "$PSScriptRoot/scripts/common.ps1"
@@ -94,6 +97,8 @@ try
 	$DVersionFlags = $DVersions.ForEach{"--d-version"; $_}
 
 	$SourceBase = "$BuildRelativeSource"
+	# Upstream 1.3.3: scrub the build-machine path out of PDBs with a snazzy prefix.
+	$DebugPrefixMap = "$SourceBase=C:\Faster-Loadin-and-Savin-$ReleaseTag"
 	$SourceFiles = $(
 		'game/package.d'
 		'skse64/dll_plugins.d'
@@ -145,40 +150,52 @@ try
 		[PSCustomObject] @{
 			Name = 'Save&LoadAcceleratorForSKSECosaves'
 			Files = "$SourceBase/slack_mod/entrypoint.d"
-			ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves.def"
 			ResourceFile = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves.rc"
 			Variants = @(
 				[PSCustomObject] @{
-					Name = 'ae'
-					Files = "$SourceBase/game/target_ae.d"
+					Name = 'ae7_99'
+					Files = "$SourceBase/game/target_ae7_99.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-SKSEPreloader.def"
+				}
+				[PSCustomObject] @{
+					Name = 'ae1170'
+					Files = "$SourceBase/game/target_ae1170.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-SKSEPreloader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'ae1130'
 					Files = "$SourceBase/game/target_ae1130.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'ae640'
 					Files = "$SourceBase/game/target_ae640.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'ae353'
 					Files = "$SourceBase/game/target_ae353.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'se'
 					Files = "$SourceBase/game/target_se.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'vr'
 					Files = "$SourceBase/game/target_vr.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'gog'
 					Files = "$SourceBase/game/target_gog.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 				[PSCustomObject] @{
 					Name = 'gog659'
 					Files = "$SourceBase/game/target_gog659.d"
+					ExportsDef = "$SourceBase/slack_mod/Save&LoadAcceleratorForSKSECosaves-DLLPluginLoader.def"
 				}
 			)
 		}
@@ -206,6 +223,7 @@ try
 			$DVersionFlags = $Using:DVersionFlags
 			$ImportedLibraries = $Using:ImportedLibraries
 			$Optimisation = $Using:Optimisation
+			$ReleaseTag = $Using:ReleaseTag
 			$SourceBase = $Using:SourceBase
 			$SourceFiles = $Using:SourceFiles
 			$TargetCPU = $Using:TargetCPU
@@ -230,6 +248,7 @@ try
 			-mcpu $TargetCPU `
 			-fvisibility hidden `
 			--gc `
+			"-fdebug-prefix-map=$DebugPrefixMap" `
 			$CompilationFlags `
 			-dip1000 `
 			$ConfigurationFlags `
@@ -277,7 +296,7 @@ try
 			& $Linker.Source `
 				/out:"$Base/$($DLL.Name).dll" `
 				/dll `
-				/def:"$($DLL.ExportsDef)" `
+				/def:"$($Variant.ExportsDef)" `
 				$(if ($Configuration -eq 'release') {'/release'}) `
 				/largeaddressaware `
 				/nodefaultlib `

@@ -19,6 +19,7 @@ import slack_mod.save_load;
 import slack_mod.setup;
 
 import skse64.dll_plugins;
+import skse64.hacks.versioning;
 import skse64.serialisation;
 
 
@@ -26,7 +27,6 @@ __gshared GlobalState global;
 
 
 enum bool shouldUseDLLNotifications = targetedGameVersion <= 0x01_06_161_0;
-enum bool hookingSKSEInitialiseViaCall = targetedGameArchetype != GameArchetype.se && targetedGameArchetype != GameArchetype.ae353;
 enum bool observingPluginFileNameViaCall = targetedGameVersion < 0x01_06_000_0;
 
 
@@ -66,24 +66,26 @@ struct ResolvedAddresses
 	std_string* skseCosaveSavePath;
 	std_vector!SerialisationStateForPlugin* cosaveAwarePlugins;
 
-	static if (hookingSKSEInitialiseViaCall)
-	{
-		ubyte* skseInitialiseCall;
-	}
-	else
-	{
-		ubyte* skseInitialiseTailReturn;
-	}
-
 	static if (observingPluginFileNameViaCall)
 	{
 		ubyte* sksePluginFilePathCall;
 	}
 	else
 	{
-		DLLPlugin** sksePluginBeingLoaded;
+		static if (expectedSKSE64Version >= 0x02_02_007_0)
+		{
+			/+ As of SKSE64 v2.2.7, the address of the plugin currently being loaded
+			   is never actually read, and so the optimiser has eliminated all of its writes.
+			   In its stead we use the plugin's index. +/
+			DLLPluginIndex* indexOfSKSEPluginBeingLoaded;
+		}
+		else
+		{
+			DLLPlugin** sksePluginBeingLoaded;
+		}
 	}
 
+	ubyte* findDLLPluginsCall;
 	ubyte* supplySKSEProviderLEA;
 	ubyte* createSKSECosave;
 	ubyte* restoreSKSECosave;
@@ -159,7 +161,7 @@ static if (shouldUseDLLNotifications)
 			{
 				if (caseInsensitiveASCIIEquality(notification.Loaded.BaseDllName.Buffer, skseDLLName.ptr, skseDLLName.length))
 				{
-					wchar[MAX_PATH + 60] stringBuffer = void;
+					wchar[512] stringBuffer = void;
 
 					setUpEverythingWithSKSEDLL(stringBuffer, cast(ubyte*) notification.Loaded.DllBase);
 

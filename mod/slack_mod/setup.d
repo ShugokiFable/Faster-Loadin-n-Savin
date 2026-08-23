@@ -36,7 +36,7 @@ import skse64.hacks.versioning;
 import skse64.hacks.offsets;
 
 
-bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
+bool setUpEverything (scope ref wchar[512] stringBuffer) nothrow @nogc
 {
 	alias Config = ConfigurationLongLived.Flags;
 
@@ -104,8 +104,6 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 		{
 			error = mapFileForReading(iniFile, &ini);
 
-			scope(exit) unmapFile(ini.ptr);
-
 			NtClose(iniFile);
 
 			if (error)
@@ -157,6 +155,14 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 		}
 	}
 
+	scope(exit)
+	{
+		if (ini != null)
+		{
+			unmapFile(ini.ptr);
+		}
+	}
+
 	skseDLLNameLength = cast(ushort) lesserOf(skseDLLNameLength, global.configuration.skseDLLNameBuffer.length - 1);
 	skseDLLNameLengthUTF8 = cast(ushort) lesserOf(skseDLLNameLengthUTF8, global.configuration.skseDLLNameBufferUTF8.length - 1);
 
@@ -197,11 +203,15 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 			}
 			else
 			{
-				reportErrorToUser(
-					stringBuffer,
-					"The SKSE64 DLL could not be found.\r\nYou may need to set, or change, the value of the \"SKSEDLLName\" setting in the \"Save&LoadAcceleratorForSKSECosaves.ini\" file.",
-					hresultFromLastError(getLastError)
+				enum wstring missingDLLMessage = (
+					  "The SKSE64 DLL could not be found.\r\n"
+					~ "This usually indicates that SKSE's loader was not used to launch to game.\r\n\r\n"
+					~ "If you use the Vortex mod manager, please try disabling and then re-enabling \"Skyrim Script Extender 64\" as the default-launcher/primary-tool in the \"Tools\" section/page.\r\n\r\n"
+					~ "Otherwise, you may need to set, or change, the value of the \"SKSEDLLName\" setting in the \"!!!!!!!##$Save&LoadAcceleratorForSKSECosaves.ini\" file.\r\n"
 				);
+
+				reportErrorToUser(stringBuffer, missingDLLMessage, hresultFromLastError(getLastError));
+
 				return false;
 			}
 		}
@@ -213,7 +223,7 @@ bool setUpEverything (scope ref wchar[MAX_PATH + 60] stringBuffer) nothrow @nogc
 }
 
 
-bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, scope ubyte* skseDLL) nothrow @nogc
+bool setUpEverythingWithSKSEDLL (scope ref wchar[512] stringBuffer, scope ubyte* skseDLL) nothrow @nogc
 {
 	alias Config = ConfigurationLongLived.Flags;
 
@@ -236,33 +246,7 @@ bool setUpEverythingWithSKSEDLL (scope ref wchar[MAX_PATH + 60] stringBuffer, sc
 
 	if (skse64Version != expectedSKSE64Version)
 	{
-		static if (__traits(compiles, isOutdatedSKSEVersion(stringBuffer, skse64Version, sections.rdata.ptr)))
-		{
-			bool isKnownOutdatedVersion = isOutdatedSKSEVersion(stringBuffer, skse64Version, sections.rdata.ptr);
-		}
-		else
-		{
-			bool isKnownOutdatedVersion = false;
-		}
-
-		if (!isKnownOutdatedVersion)
-		{
-			wchar* s = stringBuffer.ptr;
-			blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
-			s += 204;
-			blit(s, "Expected version: 0x"w.ptr, 20);
-			s += 20;
-			expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
-			s += 8;
-			blit(s, "; Actual version: 0x"w.ptr, 20);
-			s += 20;
-			skse64Version.asHexInto!true(s[0 .. 8]);
-			s += 8;
-			*s++ = '.';
-			*s++ = '\0';
-			reportErrorToUser(stringBuffer.ptr);
-		}
-
+		showComprehensiveSKSEVersionMismatchMessage(stringBuffer, skse64Version, sections.rdata.ptr);
 		return false;
 	}
 
@@ -452,7 +436,14 @@ allocatedSKSEskseAdjacentMemory:
 
 	static if (!observingPluginFileNameViaCall)
 	{
-		global.addressOf.sksePluginBeingLoaded = cast(DLLPlugin**) (sections.data.ptr + skse64Offsets.pluginBeingLoaded);
+		static if (expectedSKSE64Version >= 0x02_02_007_0)
+		{
+			global.addressOf.indexOfSKSEPluginBeingLoaded = cast(DLLPluginIndex*) (sections.data.ptr + skse64Offsets.pluginBeingLoadedIndex);
+		}
+		else
+		{
+			global.addressOf.sksePluginBeingLoaded = cast(DLLPlugin**) (sections.data.ptr + skse64Offsets.pluginBeingLoaded);
+		}
 	}
 
 	global.addressOf.cosaveAwarePlugins = cast(std_vector!SerialisationStateForPlugin*) (sections.data.ptr + skse64Offsets.cosaveAwarePlugins);
@@ -468,53 +459,29 @@ allocatedSKSEskseAdjacentMemory:
 		global.addressOf.sksePluginFilePathCall = sections.text.ptr + skse64Offsets.pluginFilePathCall;
 	}
 
-	static if (hookingSKSEInitialiseViaCall)
+	static if (expectedSKSE64Version < 0x02_02_007_0)
 	{
-		global.addressOf.skseInitialiseCall = sections.text.ptr + skse64Offsets.initialiseCall;
-	}
-	else
-	{
-		global.addressOf.skseInitialiseTailReturn = sections.text.ptr + skse64Offsets.initialiseTailReturn;
+		global.addressOf.findDLLPluginsCall = sections.text.ptr + skse64Offsets.findDLLPluginsCall;
 	}
 
 	ubyte* code = cast(ubyte*) skseAdjacentMemory;
 	ubyte* c = code;
 
-	ubyte* skseInitialiseHook = c;
-
-	static if (hookingSKSEInitialiseViaCall)
+	static if (expectedSKSE64Version < 0x02_02_007_0)
 	{
-		const(ubyte)* skseInitialise = x86TargetOf!5(global.addressOf.skseInitialiseCall);
+		ubyte* findDLLPluginsHook = c;
 
-		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;             /+ sub rsp, 40 +/
-		c.writeDirectCallOf(skseInitialise); c += 5;                             /+ call skseInitialise +/
-		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;             /+ add rsp, 40 +/
-		c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
+		const(ubyte)* findDLLPlugins = x86TargetOf!5(global.addressOf.findDLLPluginsCall);
+
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 32;              /+ sub rsp, 32 +/
+		c += c.writeCallOf(cast(const(ubyte)*) &setUpBeforeSKSEPluginsAreLoaded); /+ call setUpBeforeSKSEPluginsAreLoaded +/
+		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 32;              /+ add rsp, 32 +/
+		c.writeNearJumpTo(findDLLPlugins); c += 5;                                /+ jmp findDLLPlugins +/
 
 		withCodeRegionMadeWritable(
-			global.addressOf.skseInitialiseCall,
+			global.addressOf.findDLLPluginsCall,
 			5,
-			(scope ubyte* a, size_t s) {a.writeDirectCallOf(skseInitialiseHook);}
-		);
-	}
-	else
-	{
-		/+ SE, and AE353 are slightly different here in that `skseInitialiseCall`
-		   is a jmp instead of a call, and for whatever reason,
-		   changing it causes the game to crash, so instead we patch
-		   the initialisation function itself. +/
-
-		const(ubyte)* tailCall = x86TargetOf!5(global.addressOf.skseInitialiseTailReturn);
-
-		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 5, 4); *c++ = 40;             /+ sub rsp, 40 +/
-		c.writeDirectCallOf(tailCall); c += 5;                                   /+ call tailCall +/
-		*c++ = REX.W; *c++ = 0x83; *c++ = modRM(3, 0, 4); *c++ = 40;             /+ add rsp, 40 +/
-		c += c.writeJumpTo(cast(const(ubyte)*) &setUpAfterInitialisationOfSKSE); /+ jmp setUpAfterInitialisationOfSKSE +/
-
-		withCodeRegionMadeWritable(
-			global.addressOf.skseInitialiseTailReturn,
-			5,
-			(scope ubyte* a, size_t s) {a.writeNearJumpTo(skseInitialiseHook);}
+			(scope ubyte* a, size_t s) {a.writeDirectCallOf(findDLLPluginsHook);}
 		);
 	}
 
@@ -699,21 +666,24 @@ allocatedSKSEskseAdjacentMemory:
 
 	FlushInstructionCache(thisProcess, code, 4.KB);
 
-	static if (hookingSKSEInitialiseViaCall)
+	FlushInstructionCache(thisProcess, global.addressOf.findDLLPluginsCall, 5);
+
+	static if (expectedSKSE64Version >= 0x02_02_007_0)
 	{
-		FlushInstructionCache(thisProcess, global.addressOf.skseInitialiseCall, 5);
-	}
-	else
-	{
-		FlushInstructionCache(thisProcess, global.addressOf.skseInitialiseTailReturn, 5);
+		setUpBeforeSKSEPluginsAreLoaded([]);
 	}
 
 	return true;
 }
 
 
-void setUpAfterInitialisationOfSKSE () nothrow @nogc
+void setUpBeforeSKSEPluginsAreLoaded (mixin(expectedSKSE64Version >= 0x02_02_007_0 ? q{void[0]} : q{ulong}) rcx) nothrow @nogc
 {
+	static if (expectedSKSE64Version < 0x02_02_007_0)
+	{
+		pragma(inline, false);
+	}
+
 	alias Config = ConfigurationLongLived.Flags;
 
 	SerialisationProvider* serialisationProvider = cast(SerialisationProvider*) (
@@ -772,6 +742,13 @@ void setUpAfterInitialisationOfSKSE () nothrow @nogc
 			}
 		);
 	}
+
+	static if (expectedSKSE64Version < 0x02_02_007_0)
+	{
+		__ir_pure!(`call void asm sideeffect inteldialect "", "{rcx}" (i64 %0)`, void)(
+			rcx
+		);
+	}
 }
 
 
@@ -823,17 +800,8 @@ static if (observingPluginFileNameViaCall)
 
 
 pragma(inline, false)
-void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulong rdx) nothrow @nogc
+void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (ulong rcx, ulong rdx) nothrow @nogc
 {
-	static if (targetedGameVersion >= 0x01_06_000_0)
-	{
-		HMODULE dll = *cast(HMODULE*) (rdx + 0x20);
-	}
-	else
-	{
-		HMODULE dll = *cast(HMODULE*) rdx;
-	}
-
 	SKSE64Provider* provider = global.addressOf.globalSKSE64Provider;
 
 	static if (observingPluginFileNameViaCall)
@@ -842,7 +810,16 @@ void hijackProvisionOfSKSE64ProviderWhenLoadingSKSEPlugin (scope ulong rcx, ulon
 	}
 	else
 	{
-		const(DLLPlugin)* pluginBeingLoaded = *global.addressOf.sksePluginBeingLoaded;
+		static if (expectedSKSE64Version >= 0x02_02_007_0)
+		{
+			DLLPluginIndex biasedIndexOfPluginBeingLoaded = *global.addressOf.indexOfSKSEPluginBeingLoaded;
+			const(DLLPlugin)* pluginBeingLoaded = (cast(DLLPluginIndex) (biasedIndexOfPluginBeingLoaded - 1)).dllPlugin;
+		}
+		else
+		{
+			const(DLLPlugin)* pluginBeingLoaded = *global.addressOf.sksePluginBeingLoaded;
+		}
+
 		const(std_string)* dllName = &pluginBeingLoaded.filePath;
 		SpecialPlugin currentSpecialPlugin = specialPluginFromDLLFileName(dllName.base, dllName.size);
 	}
@@ -925,17 +902,86 @@ void specialSKSE64AssignStateSaver (
 }
 
 
-bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint skse64Version, scope const(ubyte)* skseRData) nothrow @nogc
+pragma(inline, true)
+void showComprehensiveSKSEVersionMismatchMessage (T) (
+	scope ref wchar[512] stringBuffer,
+	uint skse64Version,
+	scope T versionContext
+) nothrow @nogc
 {
-	uint versionOf (uint offset)
+	static if (__traits(compiles, isOutdatedSKSEVersion(stringBuffer, skse64Version, versionContext)))
 	{
-		return (cast(const(SKSE64Provider)*) (skseRData + offset)).skse64Version;
+		bool isKnownOutdatedVersion = isOutdatedSKSEVersion(stringBuffer, skse64Version, versionContext);
+	}
+	else
+	{
+		enum bool isKnownOutdatedVersion = false;
+	}
+
+	if (!isKnownOutdatedVersion)
+	{
+		showGenericSKSEVersionMismatchMessage(stringBuffer, skse64Version);
+	}
+}
+
+
+pragma(inline, false)
+void showGenericSKSEVersionMismatchMessage (scope ref wchar[512] stringBuffer, uint detectedSKSE64Version) nothrow @nogc
+{
+	wchar* s = stringBuffer.ptr;
+	blit(s, "This version of the SKSE64 DLL is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease ensure you are using the correct version of S.L.A.C.K. for your version of the game.\r\n"w.ptr, 204);
+	s += 204;
+	blit(s, "Expected version: 0x"w.ptr, 20);
+	s += 20;
+	expectedSKSE64Version.asHexInto!true(s[0 .. 8]);
+	s += 8;
+	blit(s, "; Detected version: 0x"w.ptr, 22);
+	s += 22;
+	detectedSKSE64Version.asHexInto!true(s[0 .. 8]);
+	s += 8;
+	*s++ = '.';
+	*s++ = '\0';
+	reportErrorToUser(stringBuffer.ptr);
+
+	showMessageBox(
+		"The previous error came from S.L.A.C.K., not SKSE.\r\nDo not report it to the SKSE team.",
+		"IMPORTANT",
+		MB_OK | MB_ICONINFORMATION
+	);
+
+	/+ Open S.L.A.C.K.'s Nexus Mods page so that people who unknowingly
+	   installed S.L.A.C.K. via a collection don't go and bug Ian about it. +/
+	openURL("https://www.nexusmods.com/skyrimspecialedition/mods/163969");
+}
+
+
+bool isOutdatedSKSEVersion (T) (scope ref wchar[512] stringBuffer, uint skse64Version, scope const(T) versionContext) nothrow @nogc
+{
+	static if (is(T == ubyte*))
+	{
+		alias skseRData = versionContext;
+
+		uint versionOf (uint offset)
+		{
+			pragma(inline, true);
+			return (cast(const(SKSE64Provider)*) (skseRData + offset)).skse64Version;
+		}
+	}
+	else
+	{
+		static assert(T.sizeof == 0);
+
+		uint versionOf (uint offset)
+		{
+			pragma(inline, true);
+			return skse64Version;
+		}
 	}
 
 	static if (targetedGameArchetype == GameArchetype.se)
 	{
-		__gshared wchar[203] message = "Version 2.0.1x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.0.20 of SKSE.\0";
-		enum wstring url = "https://skse.silverlock.org/#:~:text=game%20version%201%2E5%2E97";
+		__gshared wchar[205] message = "Version 2.0.1x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.0.20 of SKSE.\0";
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-233411:~:text=2%2E0%2E20";
 
 		if (versionOf(skse64v2_0_17_globalSKSE64Provider) == 0x02_00_011_0)
 		{
@@ -957,8 +1003,8 @@ bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint
 	}
 	else static if (targetedGameArchetype == GameArchetype.vr)
 	{
-		__gshared wchar[203] message = "Version 2.0.xx of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.0.12 of SKSE.\0";
-		enum wstring url = "https://skse.silverlock.org/#:~:text=Current%20VR%20build";
+		__gshared wchar[205] message = "Version 2.0.xx of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.0.12 of SKSE.\0";
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30457?tab=files#file-expander-header-499284:~:text=2%2E0%2E12,-Compatible";
 
 		if (versionOf(skseVRv2_0_11_globalSKSE64Provider) == 0x02_00_00B_0)
 		{
@@ -985,11 +1031,32 @@ bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint
 			}
 		}
 	}
+	else static if (targetedGameArchetype == GameArchetype.ae1170)
+	{
+		__gshared wchar[203] message = "Version 2.2.x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.2.8 of SKSE.\0";
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-792256:~:text=Skyrim%20Script%20Extender%20%28SKSE64%29%20Steam,2%2E2%2E8";
+
+		if (versionOf(skse64v2_2_06_globalSKSE64Provider) == 0x02_02_006_0)
+		{
+			message[12] = '6';
+		}
+		else if (versionOf(skse64v2_2_07_globalSKSE64Provider) == 0x02_02_007_0)
+		{
+			/+ I didn't even get a chance to release an update for 2.2.7. +/
+			message[12] = '7';
+		}
+		else
+		{
+			return false;
+		}
+	}
 	else static if (targetedGameArchetype == GameArchetype.ae1130)
 	{
-		__gshared wchar[201] message = "Version 2.2.4 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.5 of SKSE.\0";
-		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+		static immutable(wchar[203]) message = "Version 2.2.4 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.2.5 of SKSE.\0";
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-233411:~:text=2%2E2%2E5";
 
+		/+ The offset of `globalSKSE64Provider.skse64Version` didn't change
+		   between versions 2.2.4 and 2.2.5, so we needn't use `versionOf` here. +/
 		if (skse64Version == 0x02_02_004_0)
 		{}
 		else
@@ -999,8 +1066,9 @@ bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint
 	}
 	else static if (targetedGameArchetype == GameArchetype.ae640)
 	{
-		__gshared wchar[201] message = "Version 2.2.x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.3 of SKSE.\0";
-		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+		__gshared wchar[203] message = "Version 2.2.x of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.2.3 of SKSE.\0";
+		/+ Having the text-fragment match on the upload time is kind of gross, but it's the only way (download count excepted) to disambiguate between the Steam and GOG versions. +/
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-323365:~:text=8%3A09PM,2%2E2%2E3";
 
 		uint version_ = versionOf(skse64v2_2_01_or_02_globalSKSE64Provider);
 
@@ -1015,8 +1083,9 @@ bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint
 	}
 	else static if (targetedGameArchetype == GameArchetype.gog659)
 	{
-		__gshared wchar[207] message = "Version 2.2.2 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\nPlease update to version 2.2.3 (GOG) of SKSE.\0";
-		enum wstring url = "https://skse.silverlock.org/#:~:text=archived%20builds";
+		static immutable(wchar[209]) message = "Version 2.2.2 of SKSE has been detected. This version of SKSE is out-of-date and is not supported by the Save & Load Accelerator for SKSE Cosaves (S.L.A.C.K.).\r\n\r\nPlease update to version 2.2.3 (GOG) of SKSE.\0";
+		/+ Again with the text-fragment matching on the upload time grossness. +/
+		enum wstring url = "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files#file-expander-header-323366:~:text=8%3A10PM,2%2E2%2E3";
 
 		if (versionOf(skse64v2_2_02gog_globalSKSE64Provider) == 0x02_02_002_0)
 		{}
@@ -1034,23 +1103,7 @@ bool isOutdatedSKSEVersion () (scope ref wchar[MAX_PATH + 60] stringBuffer, uint
 
 	if (button == IDOK)
 	{
-		extern(Windows)
-		static uint openURL (scope void* context)
-		{
-			CoInitializeEx(null, COINIT.COINIT_APARTMENTTHREADED | COINIT.COINIT_DISABLE_OLE1DDE);
-			ShellExecuteW(null, null, url.ptr, null, null, SW_RESTORE);
-			CoUninitialize;
-			return 0;
-		}
-
-		HANDLE thread = void;
-
-		/+ Firefox causes ShellExecuteW to hang until Firefox receives focus from the user.
-		   wtf firefox ??? +/
-		if (makeThread(&thread, &openURL) == 0)
-		{
-			NtClose(thread);
-		}
+		openURL(url.ptr);
 	}
 
 	return true;
