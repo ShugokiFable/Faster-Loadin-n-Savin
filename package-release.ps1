@@ -23,9 +23,15 @@ $HighEndRoot = 'Optional/High-End (x86-64-v3)'
 if (-not $SkipBuild) {
     & (Join-Path $Root 'scripts/update-version-number.ps1') "$FileVersion"
     & (Join-Path $Root 'build.ps1') -TargetCPU 'x86-64-v2' -BuildTag '-v2'
-    if ($LASTEXITCODE -ne 0) { throw "Universal build failed: $LASTEXITCODE" }
     & (Join-Path $Root 'build.ps1') -TargetCPU 'x86-64-v3' -BuildTag '-v3'
-    if ($LASTEXITCODE -ne 0) { throw "High-End build failed: $LASTEXITCODE" }
+    # Thread-job failures don't set $LASTEXITCODE; assert the real invariant instead.
+    $Missing = @(foreach ($Profile in @('release-v2', 'release-v3')) {
+        foreach ($Variant in $Variants) {
+            $Path = Join-Path $Root "build/$Profile/$Variant/$DLLName"
+            if (-not (Test-Path $Path)) { $Path }
+        }
+    })
+    if ($Missing.Count -gt 0) { throw "Build incomplete: missing $($Missing.Count) DLL(s), e.g. $($Missing[0])" }
 }
 
 foreach ($Profile in @('v2', 'v3')) {
