@@ -225,6 +225,7 @@ try
 			$Optimisation = $Using:Optimisation
 			$ReleaseTag = $Using:ReleaseTag
 			$SourceBase = $Using:SourceBase
+			$DebugPrefixMap = $Using:DebugPrefixMap
 			$SourceFiles = $Using:SourceFiles
 			$TargetCPU = $Using:TargetCPU
 			$TargetTriple = $Using:TargetTriple
