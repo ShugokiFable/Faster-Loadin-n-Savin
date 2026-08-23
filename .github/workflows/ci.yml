@@ -36,7 +36,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Faster-Loadin-and-Savin-package
-          path: package/release/*
+          path: dist/*
+          if-no-files-found: error
 
   release:
     needs: build
