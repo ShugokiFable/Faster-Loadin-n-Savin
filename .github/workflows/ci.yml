@@ -16,7 +16,7 @@ jobs:
       contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up LDC
         uses: dlang-community/setup-dlang@v2
@@ -39,7 +39,7 @@ jobs:
         run: ./package-release.ps1
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Faster-Loadin-and-Savin-package
           path: dist/*
@@ -54,7 +54,7 @@ jobs:
       actions: read
     steps:
       - name: Download package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Faster-Loadin-and-Savin-package
           path: pkg
